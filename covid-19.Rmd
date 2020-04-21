@@ -418,7 +418,6 @@ dfl%>%
 
 
 
-#for some reason China's time trend stops in March. I need to check what went wrong in the compliling of the long data set.
 
 ```
 

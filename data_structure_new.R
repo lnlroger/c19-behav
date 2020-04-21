@@ -156,7 +156,7 @@ weather_long<-read.csv("covid_dataset.csv")%>%
 mobility_weather_death<-merge(merge(
   mobility_long,
   weather_long,by=c("Country","Date"),all=T),
-  time_long,by=c("Country","Date"))
+  time_long,by=c("Country","Date"),all=T)
 
 
 
@@ -304,7 +304,7 @@ df2$Log_Death_pc<-ifelse(df2$Death_pc>0,log(df2$Death_pc),NA)
 df2$Google_pc<-df2$Google/df2$Population
 df2$Log_Google_pc<-ifelse(df2$Google_pc>0,log(df2$Google_pc),NA)
 
-write.csv(df2,"22042020_short.csv")
+#write.csv(df2,"22042020_short.csv")
 
 
 
@@ -328,5 +328,5 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-write.csv(df3,"22042020_long.csv")
+#write.csv(df3,"22042020_long.csv")
 
