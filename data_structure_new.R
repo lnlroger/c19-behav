@@ -1,10 +1,10 @@
-mobility <- read.csv(here::here("mobility_report_regions_1_2.csv"))%>%
-  filter(Region=="Total")%>%
-  #dplyr::select(-Residential)%>%
-  filter(Date=="2020-03-29")%>%
-  mutate(Movement=rowMeans(.[,c("Retail...recreation","Grocery...pharmacy","Parks","Transit.stations",
-                                       "Workplaces")],na.rm=T)) %>% 
-  arrange(Country,Date)%>%
+mobility_long <- read.csv(here::here("Global_Mobility_Report.csv"))%>%
+  rename(Country=country_region)%>%
+  filter(sub_region_1=="")%>%
+  mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline","grocery_and_pharmacy_percent_change_from_baseline",
+                                "parks_percent_change_from_baseline", "transit_stations_percent_change_from_baseline",
+                                "workplaces_percent_change_from_baseline")],na.rm=T))%>%
+  mutate(Date=as.Date(date))%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
                                'United Arab Emirates'='UAE','Czech Republic'='Czechia',
@@ -13,10 +13,17 @@ mobility <- read.csv(here::here("mobility_report_regions_1_2.csv"))%>%
                                "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
                                "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
+
+
+
+
+
+mobility_short<-mobility_long%>%
+  filter(Date==as.Date("2020-04-11"))
   
-           
-  
-  
+
+
+
  
 
 
@@ -25,9 +32,12 @@ mobility <- read.csv(here::here("mobility_report_regions_1_2.csv"))%>%
 
 
 
-#lockdown has been customised so as to take the median Province's attitude
+#lockdown has been customised so as to take the median Province's attitude. 
+  #The median is calculated by arranging by date of lockdown.
+  #This approach coerces the US to the lockdown from its median state: N. Hampshire for example.
+  #If you want to see the lock-down dates per state, see the "CountryLockdowndates.csv" instead.
 lockdown<- read.csv(here::here("countryLockdowndates_custom.csv"))%>%
-  rename(DateMovement=Date)%>%
+  rename(DateLockDown=Date)%>%
   mutate(Lock=ifelse(Type=="None","No","Yes"))%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -49,44 +59,45 @@ days<-read.csv("CovidDeaths.csv")%>%
                                "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
                                "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
-  mutate(date=as.Date(date,format="%d/%m/%y"))%>%
-  filter(date!="2020-12-31")%>%
-  mutate(DeathsBeforeGoogle=case_when(date=="2020-03-19"~total_deaths))
+  mutate(Date=as.Date(date,format="%d/%m/%y"))%>%
+  filter(Date!="2020-12-31")%>%
+  mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths))
+
 
 days_1case<-days[days$new_cases==1,]%>%
   group_by(Country)%>%
-  summarise(Date_1Confirmed=first(date))
+  summarise(Date_1Confirmed=first(Date))
 
 days_1death<-days[days$new_deaths==1,]%>%
   group_by(Country)%>%
-  summarise(Date_1Death=first(date))
+  summarise(Date_1Death=first(Date))
 
 
 
-time<-merge(merge(
+time_long<-merge(merge(
   days,
   days_1case,by="Country",all=T),
   days_1death,by="Country",all=T)
 
-time_short<-time%>%
+time_short<-time_long%>%
   
   group_by(Country)%>%
-  arrange(Country,date)%>%
+  arrange(Country,Date)%>%
   summarise(Date_1confirmed=first(Date_1Confirmed),Date_1death=first(Date_1Death),
             TotalCases=last(total_cases),TotalDeaths=last(total_deaths),Google=first(na.omit(DeathsBeforeGoogle)))
   
 
-DaysLock<-merge(lockdown,time_short,by="Country",all=T)%>%
-  mutate(DateMovement=as.Date(DateMovement,format="%d/%m/%Y"))%>%
-  mutate(DaysDuration=ifelse(Type=="None",0,as.Date("29/03/2020",format="%d/%m/%y")-as.Date(DateMovement)))%>%
-  mutate(DaysMovementStart=DateMovement-as.Date("22/01/2020",format="%d/%m/%Y"))%>%
-  mutate(Days_Movement_1case=as.Date("29/03/2020",format="%d/%m/%y")-as.Date(Date_1confirmed,format="%d/%m/%y"))%>%
-  mutate(Days_Movement_1death=as.Date("29/03/2020",format="%d/%m/%y")-as.Date(Date_1death,format="%d/%m/%y"))
+DaysLock_short<-merge(lockdown,time_short,by="Country",all=T)%>%
+  mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
+  mutate(DaysDuration=ifelse(Type=="None",0,as.Date("29/03/2020",format="%d/%m/%y")-as.Date(DateLockDown)))%>%
+  mutate(DaysLockDownStart=DateLockDown-as.Date("22/01/2020",format="%d/%m/%Y"))%>%
+  mutate(Days_LockDown_1case=as.Date("29/03/2020",format="%d/%m/%y")-as.Date(Date_1confirmed,format="%d/%m/%y"))%>%
+  mutate(Days_LockDown_1death=as.Date("29/03/2020",format="%d/%m/%y")-as.Date(Date_1death,format="%d/%m/%y"))
   
 
 
 
-weather<-read.csv("covid_dataset.csv")%>%
+weather_short<-read.csv("covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -112,6 +123,40 @@ weather<-read.csv("covid_dataset.csv")%>%
                              condition = ~.x == -999)
 
 
+
+
+weather_long<-read.csv("covid_dataset.csv")%>%
+  rename(Country=Country.Region)%>%
+  mutate(Country=recode_factor(Country,
+                               'United States of America' = 'US','United Kingdom'='UK',
+                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
+                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
+                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
+                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
+                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
+                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
+  mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
+  mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
+  mutate(humidityBefore=case_when(Date<as.Date("2020-02-23")~humidity))%>%
+  mutate(humidityAfter=case_when(Date>=as.Date("2020-02-23")~humidity))%>%
+  naniar::replace_with_na_at(.vars = c("Temperature","Humidity"),
+                             condition = ~.x == -999)%>%
+  group_by(Country,Date)%>%
+  summarise(Temperature=mean(temperature,na.rm=TRUE),
+            TemperatureBfr=mean(temperatureBefore,na.rm=T),TemperatureAftr=mean(temperatureAfter,na.rm=T),
+            Humidity=mean(humidity,na.rm=T), 
+            HumidityBfr=mean(humidityBefore,na.rm=TRUE),HumidityAftr=mean(humidityAfter,na.rm=T))
+
+
+
+
+
+
+mobility_weather_death<-merge(merge(
+  mobility_long,
+  weather_long,by=c("Country","Date"),all=T),
+  time_long,by=c("Country","Date"))
 
 
 
@@ -240,88 +285,48 @@ countries<-read.csv("countries_custom.csv")%>%
 
 
 
-df<-merge(merge(merge(merge(merge(merge(merge(merge(
-  mobility,
-  DaysLock,by="Country",all=T),
+df_short<-merge(merge(merge(merge(merge(merge(merge(merge(
+  mobility_short,
+  DaysLock_short,by="Country",all=T),
   wvs,by="Country",all=T),
-  weather,by="Country",all=T),
+  weather_short,by="Country",all=T),
   wb,by="Country",all=T),
   elections,by="Country",all=T),
   rol,by="Country",all=T),
   social_prefs,by="Country",all=T),
   countries,by="Country",all=T)
 
-df$Death_pc<-df$TotalDeaths/df$Population
-df$Confirmed_pc<-df$TotalCases/df$Population
-df2<-subset(df,df$Province!="Faroe Islands")
+
+df_short$Death_pc<-df_short$TotalDeaths/df_short$Population
+df_short$Confirmed_pc<-df_short$TotalCases/df_short$Population
+df2<-subset(df_short,df_short$Province!="Faroe Islands")
 df2$Log_Death_pc<-ifelse(df2$Death_pc>0,log(df2$Death_pc),NA)
 df2$Google_pc<-df2$Google/df2$Population
 df2$Log_Google_pc<-ifelse(df2$Google_pc>0,log(df2$Google_pc),NA)
 
+write.csv(df2,"22042020_short.csv")
 
 
 
-#write.csv(df2,"18042020.csv")
+df_long<-merge(merge(merge(merge(merge(merge(merge(merge(
+  mobility_weather_death,
+  lockdown,by="Country",all=T),
+  wvs,by="Country",all=T),
+  wb,by="Country",all=T),
+  elections,by="Country",all=T),
+  rol,by="Country",all=T),
+  social_prefs,by="Country",all=T),
+  countries,by="Country",all=T),
+  time_short,by="Country",all=T)
 
 
-#countries<-read.csv("countries.csv")
+df_long$Death_pc<-df_long$total_deaths/df_long$Population
+df_long$Confirmed_pc<-df_long$total_cases/df_long$Population
+df3<-subset(df_long,df_long$Province!="Faroe Islands")
+df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 
-#q<-semi_join(df,countries,by="Country")
+df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
+df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-#q$Continent<-countries$Continent
-#q$Popular<-countries$Popular
-#write.csv(q,"countries2.csv")
-
-
-
-
-
-cor.test(as.numeric(df$DaysRestr),df$ROL,na.rm=TRUE)
-cor.test(as.numeric(df$DaysRestr),df$Democracy)
-cor.test(as.numeric(df$DaysRestr),df$Civil)
-cor.test(as.numeric(df$DaysRestr),df$Democraticness)
-cor.test(as.numeric(df$DaysRestr),df$Opression)
-
-cor.test(as.numeric(df$Movement),df$ROL,na.rm=TRUE)
-cor.test(as.numeric(df$Movement),df$Democracy)
-cor.test(as.numeric(df$Movement),df$Civil)
-cor.test(as.numeric(df$Movement),df$Democraticness)
-cor.test(as.numeric(df$Movement),df$Opression)
-
-cor.test(as.numeric(df$Days_1case),df$ROL)
-cor.test(as.numeric(df$Days_1case),df$Democracy)
-cor.test(as.numeric(df$Days_1case),df$Civil)
-
-cor.test(as.numeric(df$Strict),df$ROL)
-cor.test(as.numeric(df$Strict),df$Democracy)
-cor.test(as.numeric(df$Strict),df$Civil)
-
-
-cor.test(as.numeric(df$Days_pandemic),df$ROL)
-cor.test(as.numeric(df$Days_pandemic),df$Democracy)
-cor.test(as.numeric(df$Days_pandemic),df$Civil)
-
-cor.test(as.numeric(df$Days_1death),df$ROL)
-cor.test(as.numeric(df$Days_1death),df$Democracy)
-cor.test(as.numeric(df$Days_1death),df$Civil)
-
-cor.test(as.numeric(df$Days_1case),df$ROL)
-cor.test(as.numeric(df$Days_1case),df$Democracy)
-cor.test(as.numeric(df$Days_1case),df$Civil)
-
-
-
-cor.test(df$Movement,df$ROL)
-cor.test(df$RetailRecreation,df$ROL)
-cor.test(df$GroceryPharmacy,df$ROL)
-cor.test(df$Parks,df$ROL)
-cor.test(df$TransitStations,df$ROL)
-cor.test(df$Workplace,df$ROL)
-cor.test(df$Residential,df$ROL)
-
-df_restr<-filter(df,df$Reaction==1|df$Reaction==2)
-df_norestr<-filter(df,df$Reaction==0)
-df_NA<-filter(df,is.na(df$Reaction))
-
-cor.test(df_NA$Movement,df_NA$ROL)
+write.csv(df3,"22042020_long.csv")
 

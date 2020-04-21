@@ -6,7 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r echo = FALSE, message=FALSE, results="hide", include=FALSE ,warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
 
 
@@ -34,7 +34,14 @@ library(naniar)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("21042020.csv"))
+df<-read.csv(here::here("22042020_short.csv"))
+dfl<-read.csv(here::here("22042020_long.csv"))
+
+
+#df corresponds to the short version of the data, where we keep only the last observed date by Google. 
+#dfl corresponds to the long version of the data, where we have day by day observations for Google and for the weather.
+#The weather starts recording from 22-01-2020 while Google from mid Feb. 
+#In the short version we take average temperatures and the last day of Google. 
 
 
 
@@ -126,7 +133,7 @@ Countries that score higher in ROL quarantine less. Perhaps, ROL, captures other
 ```{r }
 
 
-vars_intr<-c("Lock","log_GDP_pc","DaysDuration","Days_Movement_1death","ROL","HumidityDif","Humidity",
+vars_intr<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
                "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL")
 
 intr<-formula(paste("Movement ~", paste(vars_intr, sep = "", collapse = "+")))
@@ -144,7 +151,7 @@ The second regession: "Best", scores much higher in R_sq_adjusted (more than 50%
 
 
 ```{r regMov_bst, fig.cap="Determinants of Movement: Best_R" ,results='asis'}
-vars_best<-c("Lock","log_GDP_pc","DaysDuration","Days_Movement_1death","ROL","HumidityDif","Humidity",
+vars_best<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
                "TemperatureDif","Temperature","Unemployment","Death_disease","Pop_Density_sq_mi")
 
 best<-formula(paste("Movement ~", paste(vars_best, sep = "", collapse = "+")))
@@ -393,33 +400,13 @@ Just started playing around with dynamic trends.
 
 ```{r trend, fig.cap="Death curve"}
 
-days<-read.csv("CovidDeaths.csv")%>%
-  rename(Country=location)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
-  mutate(date=as.Date(date,format="%d/%m/%y"))%>%
-  filter(date!="2020-12-31")%>%
-  mutate(DeathsBeforeGoogle=case_when(date=="2020-03-19"~total_deaths))
+dfl%>%
+  mutate(Date=as.Date(Date))%>%
+  mutate(label = if_else(Date == max(Date,na.rm=T), as.character(Country), NA_character_)) %>%
 
-
-
-
-
-dyn<-merge(days,df,by="Country",all=T)%>%
-  arrange(Country,date)
-
-dyn%>%
-  mutate(label = if_else(date == max(date,na.rm=T), as.character(Country), NA_character_)) %>%
-
-  filter(TotalDeaths>1000,date>as.Date("01/03/2020",format="%d/%m/%Y"))%>%
+  filter(TotalDeaths>1000,Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
   group_by(Country)%>%
-  ggplot(aes(x = date, y = total_deaths,group=Country, color=Country)) + 
+  ggplot(aes(x = Date, y = total_deaths,group=Country, color=Country)) + 
   geom_line() +
   #scale_colour_brewer(palette = 'Set1')+
   #guides(colour="legend")
@@ -430,6 +417,8 @@ dyn%>%
                   na.rm = TRUE)
 
 
+
+#for some reason China's time trend stops in March. I need to check what went wrong in the compliling of the long data set.
 
 ```
 
