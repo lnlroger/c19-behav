@@ -80,7 +80,6 @@ time_long<-merge(merge(
   days_1death,by="Country",all=T)
 
 time_short<-time_long%>%
-  
   group_by(Country)%>%
   arrange(Country,Date)%>%
   summarise(Date_1confirmed=first(Date_1Confirmed),Date_1death=first(Date_1Death),
@@ -230,6 +229,22 @@ wb<-read.csv("WorldBank.csv")%>%
 wb<-merge(wb,read.csv("WB_hosp_bed.csv"),by="Country.Code",all=T)          
 
 
+polityIV <- read.csv("polity4_v2018.csv")%>%
+  filter(year == 2018) %>%
+  mutate(Country=recode_factor(country,
+                               'United States' = 'US','United Kingdom'='UK',
+                               'Czech Republic'='Czechia', "Macedonia"="North Macedonia",
+                               'Russia' = 'Russian Federation', 'Cape Verde' = 'Cabo Verde',
+                               "Cote D'Ivoire" = "Cote d'Ivoire", "Congo Brazzaville" = "Congo, Rep.",
+                               "Congo Kinshasa" = "Congo, Dem. Rep.", "Swaziland" = "Eswatini", 
+                               "Sudan-North" = "Sudan", "Iran" = "Iran, Islamic Rep.", 
+                               "Egypt" = "Egypt, Arab Rep.", "Syria" = "Syrian Arab Republic", 
+                               "Yemen" = "Yemen, Rep.",
+                               "Kyrgyzstan" = "Kyrgyz Republic", "Korea North" = "Korea, Dem. People's Rep.",
+                               "Korea South" = "South Korea", "Myanmar (Burma)" = "Myanmar")) %>%
+  dplyr::select('Country','polity2')
+  
+  
   
 
 elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
@@ -250,6 +265,8 @@ elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
                              condition = ~.x == -999)%>%
   drop_na()
   
+
+
  
 #RolFluElec<-merge(RolFlu,elections,by="Country.Code",all=T)%>%
  # mutate(Country=Country.x)
@@ -266,6 +283,7 @@ social_prefs<-read.csv("socialprefs.csv")%>%
                                "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
                                "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
+
 
 
 countries<-read.csv("countries_custom.csv")%>%
