@@ -1,64 +1,40 @@
-mobility_long <- read.csv(here::here("Global_Mobility_Report.csv"))%>%
-  rename(Country=country_region)%>%
+library("countrycode")
+
+# Import google mobility data ----
+
+# mobility_long: daily data
+# mobility_short: mobility on latest available date
+
+mobility_long <- read.csv("Global_Mobility_Report.csv")%>%
   filter(sub_region_1=="")%>%
   mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline","grocery_and_pharmacy_percent_change_from_baseline",
                                 "parks_percent_change_from_baseline", "transit_stations_percent_change_from_baseline",
                                 "workplaces_percent_change_from_baseline")],na.rm=T))%>%
   mutate(Date=as.Date(date))%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
-
-
-
-
+  mutate(Country=countrycode(country_region_code,'iso2c','country.name')) %>%
+  mutate(Country=replace(Country, is.na(country_region_code), 'Namibia'))
+  
 
 mobility_short<-mobility_long%>%
   filter(Date==as.Date("2020-04-11"))
-  
 
 
-
- 
-
-
-
-
-
-
+# Lockdown dates ----
 
 #lockdown has been customised so as to take the median Province's attitude. 
   #The median is calculated by arranging by date of lockdown.
   #This approach coerces the US to the lockdown from its median state: N. Hampshire for example.
   #If you want to see the lock-down dates per state, see the "CountryLockdowndates.csv" instead.
-lockdown<- read.csv(here::here("countryLockdowndates_custom.csv"))%>%
+lockdown<- read.csv("countryLockdowndates_custom.csv") %>%
   rename(DateLockDown=Date)%>%
   mutate(Lock=ifelse(Type=="None","No","Yes"))%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
+  mutate(Country=countrycode(Country,'country.name','country.name'))
+  
 #2020-01-22 is the date from which the covid dataset starts counting
 
 days<-read.csv("CovidDeaths.csv")%>%
   rename(Country=location)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(date,format="%d/%m/%y"))%>%
   filter(Date!="2020-12-31")%>%
   mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths))
@@ -98,14 +74,7 @@ DaysLock_short<-merge(lockdown,time_short,by="Country",all=T)%>%
 
 weather_short<-read.csv("covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
@@ -121,19 +90,9 @@ weather_short<-read.csv("covid_dataset.csv")%>%
   naniar::replace_with_na_at(.vars = c("Temperature","Humidity"),
                              condition = ~.x == -999)
 
-
-
-
 weather_long<-read.csv("covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
@@ -148,10 +107,6 @@ weather_long<-read.csv("covid_dataset.csv")%>%
             HumidityBfr=mean(humidityBefore,na.rm=TRUE),HumidityAftr=mean(humidityAfter,na.rm=T))
 
 
-
-
-
-
 mobility_weather_death<-merge(merge(
   mobility_long,
   weather_long,by=c("Country","Date"),all=T),
@@ -162,32 +117,18 @@ mobility_weather_death<-merge(merge(
 
 #write.csv(Time,"Time.csv")
 
-wvs<-read.csv(here::here("WVS_per_Country.csv"))%>%
+wvs<-read.csv("WVS_per_Country.csv")%>%
   #filter(Wave==6)%>%
   dplyr::select(Country,E235,E236,E124,E229,Wave)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   rename(Democracy=E235,Democraticness=E236,Civil=E124,Opression=E229)%>%
   group_by(Country)%>%
   filter(Wave==max(Wave)) #I keep the values for each country with the most recent available wave
 
 
-rol<-read.csv(here::here("RuleOfLaw2018.csv"))%>%
+rol<-read.csv("RuleOfLaw2018.csv")%>%
   mutate(Country=Country.Name,ROL=as.numeric(levels(X2018..YR2018.))[X2018..YR2018.])%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   dplyr::select(Country,Country.Code,ROL)%>%
   mutate(Country.Code=recode_factor(Country.Code,
                                'ROM'="ROU"))
@@ -214,49 +155,35 @@ rol<-read.csv(here::here("RuleOfLaw2018.csv"))%>%
 
 #write.csv(wb,"WorldBank.csv")
 
+
 wb<-read.csv("WorldBank.csv")%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(Country.Code,'wb','country.name'))%>%
   mutate(log_GDP_pc=log(GDP_pc))
   
 
 wb<-merge(wb,read.csv("WB_hosp_bed.csv"),by="Country.Code",all=T)          
 
+# PolityIV index ----
 
 polityIV <- read.csv("polity4_v2018.csv")%>%
   filter(year == 2018) %>%
-  mutate(Country=recode_factor(country,
-                               'United States' = 'US','United Kingdom'='UK',
-                               'Czech Republic'='Czechia', "Macedonia"="North Macedonia",
-                               'Russia' = 'Russian Federation', 'Cape Verde' = 'Cabo Verde',
-                               "Cote D'Ivoire" = "Cote d'Ivoire", "Congo Brazzaville" = "Congo, Rep.",
-                               "Congo Kinshasa" = "Congo, Dem. Rep.", "Swaziland" = "Eswatini", 
-                               "Sudan-North" = "Sudan", "Iran" = "Iran, Islamic Rep.", 
-                               "Egypt" = "Egypt, Arab Rep.", "Syria" = "Syrian Arab Republic", 
-                               "Yemen" = "Yemen, Rep.",
-                               "Kyrgyzstan" = "Kyrgyz Republic", "Korea North" = "Korea, Dem. People's Rep.",
-                               "Korea South" = "South Korea", "Myanmar (Burma)" = "Myanmar")) %>%
+  mutate(Country=countrycode(scode,'p4c','country.name')) %>%
   dplyr::select('Country','polity2')
   
+
+# UN population data ----
   
+UNpop <- read.csv("UN-Population/population_division_UN_Houseshold_Size_and_Composition_2019.csv") %>%
+  rename(Country = ï..Country) %>%
+  mutate(Country = countrycode(Country,"country.name","country.name"))
+  
+
+
+# Elections ----
   
 
 elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
-  mutate(Country=ï..countryname)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
+  mutate(Country=countrycode(ifs,'wb','country.name')) %>%
   #mutate(ifs="Country.Code")%>%
   arrange(Country,year)%>%
   group_by(Country)%>%
@@ -275,14 +202,7 @@ elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
 
 social_prefs<-read.csv("socialprefs.csv")%>%
   rename(Country=country)%>%
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
+  mutate(Country=countrycode(Country,"country.name","country.name"))
 
 
 
@@ -292,18 +212,11 @@ countries<-read.csv("countries_custom.csv")%>%
   mutate(Country=trimws(Country))%>%
   #mutate_at(vars(Population:Service),funs(as.numeric))%>%
   
-  mutate(Country=recode_factor(Country,
-                               'United States of America' = 'US','United Kingdom'='UK',
-                               'United Arab Emirates'='UAE','Czech Republic'='Czechia',
-                               'Bosnia and Herzegovina'='Bosnia','United States'='US',"USA"="US",
-                               'Viet Nam'='Vietnam','Congo (Kinshasa)'='Congo',"Bosnia Herzegovina"="Bosnia",
-                               "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
-                               "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
-                               "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
+  mutate(Country=countrycode(Country,"country.name","country.name"))
 
 
 
-df_short<-merge(merge(merge(merge(merge(merge(merge(merge(
+df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_short,
   DaysLock_short,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -312,7 +225,8 @@ df_short<-merge(merge(merge(merge(merge(merge(merge(merge(
   elections,by="Country",all=T),
   rol,by="Country",all=T),
   social_prefs,by="Country",all=T),
-  countries,by="Country",all=T)
+  countries,by="Country",all=T),
+  polityIV, by="Country",all=T)
 
 
 df_short$Death_pc<-df_short$TotalDeaths/df_short$Population
@@ -322,7 +236,7 @@ df2$Log_Death_pc<-ifelse(df2$Death_pc>0,log(df2$Death_pc),NA)
 df2$Google_pc<-df2$Google/df2$Population
 df2$Log_Google_pc<-ifelse(df2$Google_pc>0,log(df2$Google_pc),NA)
 
-#write.csv(df2,"22042020_short.csv")
+write.csv(df2,"24042020_short.csv")
 
 
 
