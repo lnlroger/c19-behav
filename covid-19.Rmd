@@ -34,7 +34,7 @@ library(naniar)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("22042020_short.csv"))
+df<-read.csv(here::here("24042020_short.csv"))
 dfl<-read.csv(here::here("22042020_long.csv"))
 
 
@@ -134,7 +134,7 @@ Countries that score higher in ROL quarantine less. Perhaps, ROL, captures other
 
 
 vars_intr<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
-               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL")
+               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL","polity2")
 
 intr<-formula(paste("Movement ~", paste(vars_intr, sep = "", collapse = "+")))
 intr_mob<-lm(data=df,intr)
@@ -152,7 +152,7 @@ The second regession: "Best", scores much higher in R_sq_adjusted (more than 50%
 
 ```{r regMov_bst, fig.cap="Determinants of Movement: Best_R" ,results='asis'}
 vars_best<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
-               "TemperatureDif","Temperature","Unemployment","Death_disease","Pop_Density_sq_mi")
+               "TemperatureDif","Temperature","Unemployment","Death_disease","Pop_Density_sq_mi","polity2")
 
 best<-formula(paste("Movement ~", paste(vars_best, sep = "", collapse = "+")))
 best_mob<-lm(data=df,best)
@@ -420,4 +420,27 @@ dfl%>%
 
 
 ```
+
+
+
+
+# Action points
+
+* Find the country (region) - level individualism/ collectivism (see Hofstede, Gelfland, etc.) & integrate.
+* Distance from lockdown in days.
+* glmnet selects the variables that together offer the best predictive power. In the interesting model we see what I would think is somewhat counter-intuitive variables (like patience:in, lokc:out). Let's run the models suggested by glmnet and compare. 
+  * Lock is actually out for a technical reason which we should prob. fix. 
+* Finish Literature review on individual and collectivism
+* Integrate the behavioural data and strictness of lock-down?
+  * Data structure: let's make sure it works. 
+  * careful in integrating the strictness of lock-down. Multiconearity (do they take into account the Movement reduction for eg?). 
+  * Orestis: behavioural data and strictness of lock-down, collectivism indexes
+  * Lio: Polity4, UN-Population...emdat.be
+  
+* What is the Death_Disease about? 
+  
+
+
+
+
 
