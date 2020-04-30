@@ -1,3 +1,4 @@
+library("tidyverse")
 library("countrycode")
 
 # Import google mobility data ----
@@ -7,8 +8,10 @@ library("countrycode")
 
 mobility_long <- read.csv("Global_Mobility_Report.csv")%>%
   filter(sub_region_1=="")%>%
-  mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline","grocery_and_pharmacy_percent_change_from_baseline",
-                                "parks_percent_change_from_baseline", "transit_stations_percent_change_from_baseline",
+  mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline",
+                                "grocery_and_pharmacy_percent_change_from_baseline",
+                                "parks_percent_change_from_baseline", 
+                                "transit_stations_percent_change_from_baseline",
                                 "workplaces_percent_change_from_baseline")],na.rm=T))%>%
   mutate(Date=as.Date(date))%>%
   mutate(Country=countrycode(country_region_code,'iso2c','country.name')) %>%
@@ -34,21 +37,23 @@ lockdown<- read.csv("countryLockdowndates_custom.csv") %>%
 
 days<-read.csv("CovidDeaths.csv")%>%
   rename(Country=location)%>%
+  mutate(Country = recode(Country, "Timor" = "Timor Leste")) %>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(date,format="%d/%m/%y"))%>%
   filter(Date!="2020-12-31")%>%
   mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths))
 
+# Identify date of first reported infections & death
 
-days_1case<-days[days$new_cases==1,]%>%
+days_1case<-days[days$new_cases>=1,]%>%
   group_by(Country)%>%
   summarise(Date_1Confirmed=first(Date))
 
-days_1death<-days[days$new_deaths==1,]%>%
+days_1death<-days[days$new_deaths>=1,]%>%
   group_by(Country)%>%
   summarise(Date_1Death=first(Date))
 
-
+# Merge into sub-dataset of cases, deaths, and timing
 
 time_long<-merge(merge(
   days,
@@ -61,6 +66,8 @@ time_short<-time_long%>%
   summarise(Date_1confirmed=first(Date_1Confirmed),Date_1death=first(Date_1Death),
             TotalCases=last(total_cases),TotalDeaths=last(total_deaths),Google=first(na.omit(DeathsBeforeGoogle)))
   
+# Compute time country has been in lockdown, since it had first case, death...
+# Note: NEEDS UPDATING (dates)
 
 DaysLock_short<-merge(lockdown,time_short,by="Country",all=T)%>%
   mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
@@ -71,6 +78,8 @@ DaysLock_short<-merge(lockdown,time_short,by="Country",all=T)%>%
   
 
 
+# Weather data
+# Note: Before and after what? shouldn't it be date of lockdown, rather than 23/2 everywhere?
 
 weather_short<-read.csv("covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
@@ -175,17 +184,20 @@ polityIV <- read.csv("polity4_v2018.csv")%>%
   
 UNpop <- read.csv("UN-Population/population_division_UN_Houseshold_Size_and_Composition_2019.csv") %>%
   rename(Country = �..Country) %>%
+  mutate(Country = recode(Country, "Réunion" = "Reunion", "Saint-Barthélemy" = "Saint-Barthelemy")) %>%
   mutate(Country = countrycode(Country,"country.name","country.name"))
   
 
 
 # Elections ----
   
+`%notin%` <- Negate(`%in%`)
 
-elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
+elections<-read.csv("DPI2017_basefile_Jan2018.csv") %>%
+  mutate(ifs = recode(ifs, "ROM" = "ROU", "TMP" = "TLS", "ZAR" = "COD")) %>%
+  filter(ifs %notin% c("CSK", "DDR", "SUN", "YMD", "YSR", "0", "")) %>%
   mutate(Country=countrycode(ifs,'wb','country.name')) %>%
-  #mutate(ifs="Country.Code")%>%
-  arrange(Country,year)%>%
+  arrange(Country,year) %>%
   group_by(Country)%>%
   summarise(ElectionYear=last(year),ElectionWin=last(percent1),Country.Code=first(ifs))%>%
   naniar::replace_with_na_at(.vars = c("ElectionYear","ElectionWin","Country.Code"),
@@ -198,25 +210,28 @@ elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
 #RolFluElec<-merge(RolFlu,elections,by="Country.Code",all=T)%>%
  # mutate(Country=Country.x)
 
-# dplyr::select(Country,percent1)
+# Social preferences
 
 social_prefs<-read.csv("socialprefs.csv")%>%
   rename(Country=country)%>%
   mutate(Country=countrycode(Country,"country.name","country.name"))
 
-
+# Basic country co-variates (source?)
 
 countries<-read.csv("countries_custom.csv")%>%
   #naniar::replace_with_na_at(.vars!=c("Population","Service"),condition = ~.x == -999.000)%>%
   na_if(.,-999)%>%
-  mutate(Country=trimws(Country))%>%
-  #mutate_at(vars(Population:Service),funs(as.numeric))%>%
-  
+  mutate(Country = recode(Country, "Central African Rep. " = "Central African Republic", 
+                          "Virgin Islands " = "U.S. Virgin Islands")) %>%
   mutate(Country=countrycode(Country,"country.name","country.name"))
 
 
 
-df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(
+# Merge into single dataframes ----
+
+# Short version (pure cross-section)
+
+df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_short,
   DaysLock_short,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -226,7 +241,8 @@ df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(
   rol,by="Country",all=T),
   social_prefs,by="Country",all=T),
   countries,by="Country",all=T),
-  polityIV, by="Country",all=T)
+  polityIV, by="Country",all=T),
+  UNpop, by="Country",all=T)
 
 
 df_short$Death_pc<-df_short$TotalDeaths/df_short$Population
@@ -236,11 +252,12 @@ df2$Log_Death_pc<-ifelse(df2$Death_pc>0,log(df2$Death_pc),NA)
 df2$Google_pc<-df2$Google/df2$Population
 df2$Log_Google_pc<-ifelse(df2$Google_pc>0,log(df2$Google_pc),NA)
 
-write.csv(df2,"24042020_short.csv")
+write.csv(df2,"30042020_short.csv")
 
 
+# Long version (daily data)
 
-df_long<-merge(merge(merge(merge(merge(merge(merge(merge(
+df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_weather_death,
   lockdown,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -249,7 +266,10 @@ df_long<-merge(merge(merge(merge(merge(merge(merge(merge(
   rol,by="Country",all=T),
   social_prefs,by="Country",all=T),
   countries,by="Country",all=T),
-  time_short,by="Country",all=T)
+  time_short,by="Country",all=T),
+  polityIV,by="Country",all=T),
+  UNpop,by="Country",all=T)
+
 
 
 df_long$Death_pc<-df_long$total_deaths/df_long$Population
@@ -260,5 +280,5 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-#write.csv(df3,"22042020_long.csv")
+write.csv(df3,"30042020_long.csv")
 

@@ -31,6 +31,7 @@ library(sjPlot)
 library(sjmisc)
 library(sjlabelled)
 library(naniar)
+library(glmnet)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
@@ -174,7 +175,7 @@ q<-df%>%
 
 print(q$Country)
 
-#kable(q$Country, booktabs=T,title = "(\\#tab:MoveNBriq) Google:Yes - Briq:No") 
+#kable(q$Country, booktabs=T,title = "(\\#tab:MoveNBriq) Google:Yes - Briq:No")
 
 ```
 
@@ -390,8 +391,15 @@ df%>%
 ```
 
 
+# Identifying best predictors using elastic net
+
+A fundamental problem in identifying the factors that affect countries' policy responses and their effectiveness is that fact that the number of potential factors is large compared to the number of countries, that is, there are many variables and few observations. In order to identify the best predictors of countries behaviour and effectiveness, we employ the elastic net:
+
+```{r thisThat}
 
 
+
+```
 
 # Flattening the curve
 
