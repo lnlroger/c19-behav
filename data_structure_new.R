@@ -1,3 +1,26 @@
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(lmerTest)
+library(stargazer)
+library(ggplot2)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(countrycode)
+
 mobility_long <- read.csv(here::here("Global_Mobility_Report.csv"))%>%
   rename(Country=country_region)%>%
   filter(sub_region_1=="")%>%
@@ -49,7 +72,10 @@ lockdown<- read.csv(here::here("countryLockdowndates_custom.csv"))%>%
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
 #2020-01-22 is the date from which the covid dataset starts counting
 
-days<-read.csv("CovidDeaths.csv")%>%
+#source for owid-covid-data.csv: https://ourworldindata.org/coronavirus-source-data 
+#We don't need to update this regularly for the first cases and deaths but this is also the data
+#where we draw the total cases and deaths from. So prob. good to update once a week or so.
+days<-read.csv(here::here("owid-covid-data.csv"))%>% 
   rename(Country=location)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -59,16 +85,16 @@ days<-read.csv("CovidDeaths.csv")%>%
                                "Taiwan, China"="Taiwan", "Venezuela, RB"="Venezuela","Korea, Rep."="South Korea",
                                "Gambia, The"="Gambia","Serbia and Montenegro"="Serbia","Great Britain"="UK",
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))%>%
-  mutate(Date=as.Date(date,format="%d/%m/%y"))%>%
-  filter(Date!="2020-12-31")%>%
-  mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths))
+  mutate(Date=as.Date(date))%>%
+  #filter(Date!="2020-12-31")%>%
+  mutate(DeathsBeforeGoogle=case_when(Date==as.Date("2020-03-19")~total_deaths))
 
 
-days_1case<-days[days$new_cases==1,]%>%
+days_1case<-days[days$total_cases>0,]%>%
   group_by(Country)%>%
   summarise(Date_1Confirmed=first(Date))
 
-days_1death<-days[days$new_deaths==1,]%>%
+days_1death<-days[days$total_cases>0,]%>%
   group_by(Country)%>%
   summarise(Date_1Death=first(Date))
 
@@ -97,7 +123,7 @@ DaysLock_short<-merge(lockdown,time_short,by="Country",all=T)%>%
 
 
 
-weather_short<-read.csv("covid_dataset.csv")%>%
+weather_short<-read.csv(here::here("covid_dataset.csv"))%>%
   rename(Country=Country.Region)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -125,7 +151,7 @@ weather_short<-read.csv("covid_dataset.csv")%>%
 
 
 
-weather_long<-read.csv("covid_dataset.csv")%>%
+weather_long<-read.csv(here::here("covid_dataset.csv"))%>%
   rename(Country=Country.Region)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -215,7 +241,7 @@ rol<-read.csv(here::here("RuleOfLaw2018.csv"))%>%
 
 #write.csv(wb,"WorldBank.csv")
 
-wb<-read.csv("WorldBank.csv")%>%
+wb<-read.csv(here::here("WorldBank.csv"))%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
                                'United Arab Emirates'='UAE','Czech Republic'='Czechia',
@@ -231,9 +257,9 @@ wb<-merge(wb,read.csv("WB_hosp_bed.csv"),by="Country.Code",all=T)
 
 
   
-
-elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
-  mutate(Country=ï..countryname)%>%
+#source for "DPI2017_basefile_Jan2018.csv"
+elections<-read.csv(here::here("DPI2017_basefile_Jan2018.csv"))%>%
+  rename(Country=Ã¯..countryname)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
                                'United Arab Emirates'='UAE','Czech Republic'='Czechia',
@@ -256,7 +282,7 @@ elections<-read.csv("DPI2017_basefile_Jan2018.csv")%>%
 
 # dplyr::select(Country,percent1)
 
-social_prefs<-read.csv("socialprefs.csv")%>%
+social_prefs<-read.csv(here::here("socialprefs.csv"))%>%
   rename(Country=country)%>%
   mutate(Country=recode_factor(Country,
                                'United States of America' = 'US','United Kingdom'='UK',
@@ -268,7 +294,7 @@ social_prefs<-read.csv("socialprefs.csv")%>%
                                "Macedonia"="North Macedonia","Bosnian Federation"="Bosnia","Taiwan*"="Taiwan"))
 
 
-countries<-read.csv("countries_custom.csv")%>%
+countries<-read.csv(here::here("countries_custom.csv"))%>%
   #naniar::replace_with_na_at(.vars!=c("Population","Service"),condition = ~.x == -999.000)%>%
   na_if(.,-999)%>%
   mutate(Country=trimws(Country))%>%
@@ -328,5 +354,5 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-#write.csv(df3,"22042020_long.csv")
+#write.csv(df3,"30042020_long.csv")
 
