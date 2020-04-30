@@ -407,11 +407,15 @@ dfl%>%
   filter(TotalDeaths>1000,Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
   group_by(Country)%>%
   ggplot(aes(x = Date, y = total_deaths,group=Country, color=Country)) + 
-  geom_line() +
+  geom_line(size=1) +
   #scale_colour_brewer(palette = 'Set1')+
   #guides(colour="legend")
-  theme_minimal()+
+ 
   scale_color_discrete(guide = FALSE)+
+  
+  
+   theme_minimal()+
+  theme(text = element_text(size=15))+
   geom_label_repel(aes(label = label),
                   nudge_x = 1,
                   na.rm = TRUE)
