@@ -34,8 +34,8 @@ library(naniar)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("24042020_short.csv"))
-dfl<-read.csv(here::here("22042020_long.csv"))
+df<-read.csv(here::here("30042020_short.csv"))
+dfl<-read.csv(here::here("30042020_long.csv"))
 
 
 #df corresponds to the short version of the data, where we keep only the last observed date by Google. 
@@ -134,7 +134,7 @@ Countries that score higher in ROL quarantine less. Perhaps, ROL, captures other
 
 
 vars_intr<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
-               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL","polity2")
+               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL")
 
 intr<-formula(paste("Movement ~", paste(vars_intr, sep = "", collapse = "+")))
 intr_mob<-lm(data=df,intr)
@@ -152,7 +152,7 @@ The second regession: "Best", scores much higher in R_sq_adjusted (more than 50%
 
 ```{r regMov_bst, fig.cap="Determinants of Movement: Best_R" ,results='asis'}
 vars_best<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
-               "TemperatureDif","Temperature","Unemployment","Death_disease","Pop_Density_sq_mi","polity2")
+               "TemperatureDif","Temperature","Unemployment","Death_disease","Pop_Density_sq_mi")
 
 best<-formula(paste("Movement ~", paste(vars_best, sep = "", collapse = "+")))
 best_mob<-lm(data=df,best)
