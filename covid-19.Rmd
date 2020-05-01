@@ -31,11 +31,12 @@ library(sjPlot)
 library(sjmisc)
 library(sjlabelled)
 library(naniar)
+library(ggpubr)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("30042020_short.csv"))
-dfl<-read.csv(here::here("30042020_long.csv"))
+df<-read.csv(here::here("01052020_short.csv"))
+dfl<-read.csv(here::here("01052020_long.csv"))
 
 
 #df corresponds to the short version of the data, where we keep only the last observed date by Google. 
@@ -425,9 +426,33 @@ dfl%>%
 
 ```
 
+# Collectivism
 
 
+```{r}
 
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Collectivism",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
 # Action points
 
 * Find the country (region) - level individualism/ collectivism (see Hofstede, Gelfland, etc.) & integrate.
