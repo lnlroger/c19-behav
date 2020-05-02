@@ -113,8 +113,10 @@ weather_short<-read.csv("Weather/covid_dataset.csv")%>%
 weather_long<-read.csv("Weather/covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
-  mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
   left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
+  mutate(Date=as.Date(Date,format="%d/%m/%y"),
+         DateLockDown = as.Date(DateLockDown,format="%d/%m/%y")) %>%
+  mutate(temperatureBeforeLockdown = )
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
   mutate(humidityBefore=case_when(Date<as.Date("2020-02-23")~humidity))%>%
@@ -301,5 +303,5 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-#write.csv(df3,"30042020_long.csv")
+write.csv(df3,"01052020_long.csv")
 
