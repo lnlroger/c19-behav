@@ -113,10 +113,7 @@ weather_short<-read.csv("Weather/covid_dataset.csv")%>%
 weather_long<-read.csv("Weather/covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
-  left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
-  mutate(Date=as.Date(Date,format="%d/%m/%y"),
-         DateLockDown = as.Date(DateLockDown,format="%d/%m/%y")) %>%
-  mutate(temperatureBeforeLockdown = )
+  mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
   mutate(humidityBefore=case_when(Date<as.Date("2020-02-23")~humidity))%>%
@@ -252,7 +249,20 @@ hf<-read.csv("Collectivism/hofstede.csv")%>%
   mutate(COL=100-IDV)
 
 
+#Government efficiency from WB
 
+
+
+Gf_gov<-read.csv("Government_Gelfand/Revised Analyses/country.vars.csv")%>%
+  mutate(Country=Entity)%>%
+  mutate(Country=countrycode(Country,"country.name","country.name"))
+  
+
+
+
+
+
+# Cultural Tightness. 
 
 
 
@@ -261,7 +271,7 @@ hf<-read.csv("Collectivism/hofstede.csv")%>%
 
 # Short version (pure cross-section)
 
-df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
+df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_short,
   DaysLock_short,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -273,7 +283,8 @@ df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   countries,by="Country",all=T),
   polityIV, by="Country",all=T),
   UNpop, by="Country",all=T),
-  hf,by="Country",all=T)
+  hf,by="Country",all=T),
+  Gf_gov,by="Country",all=T)
 
 
 df_short<-df_short%>%
@@ -292,12 +303,12 @@ df2<-df2%>%
 
 
 
-#write.csv(df2,"02052020_short.csv")
+write.csv(df2,"02052020_short.csv")
 
 
 # Long version (daily data)
 
-df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
+df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_weather_death,
   lockdown,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -309,7 +320,8 @@ df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   time_short,by="Country",all=T),
   polityIV,by="Country",all=T),
   UNpop,by="Country",all=T),
-  hf,by="Country",all=T)
+  hf,by="Country",all=T),
+  Gf_gov,by="Country",all=T)
 
 df_long<-df_long%>%
   filter(!is.na(Country))
@@ -323,13 +335,9 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
-<<<<<<< HEAD
-write.csv(df3,"01052020_long.csv")
-=======
 df3<-df3%>%
   mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
   mutate(Date=as.Date(Date))
 
-#write.csv(df3,"02052020_long.csv")
->>>>>>> 279cef139d6ef07a57821ba0865485fe87fb1732
+write.csv(df3,"02052020_long.csv")
 

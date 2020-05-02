@@ -40,15 +40,15 @@ library(ggpubr)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("02052020_short.csv"))
+df<-read.csv("02052020_short.csv")
 
 
 
 
 
-dfl<-read.csv(here::here("02052020_long.csv"))
+dfl<-read.csv("02052020_long.csv")
 
-
+#https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
 #df corresponds to the short version of the data, where we keep only the last observed date by Google. 
 #dfl corresponds to the long version of the data, where we have day by day observations for Google and for the weather.
@@ -146,7 +146,7 @@ Countries that score higher in ROL quarantine less. Perhaps, ROL, captures other
 
 
 vars_intr<-c("Lock","log_GDP_pc","DaysDuration","Days_LockDown_1death","ROL","HumidityDif","Humidity",
-               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience","ROL")
+               "TemperatureDif","Temperature","Unemployment","Pop_Density_sq_mi","risktaking","patience")
 
 intr<-formula(paste("Movement ~", paste(vars_intr, sep = "", collapse = "+")))
 intr_mob<-lm(data=df,intr)
@@ -464,6 +464,15 @@ dfl%>%
 
 # Collectivism
 
+From the LSE article: 
+
+> Rankings and scores in the Bordeaux vintage chart are not awarded for a mathematical average of scores. The years in the Bordeaux vintage chart are scored using a rough average based on your chance of randomly purchasing a bottle of Bordeaux wine from the vintage of your choice and have it offer a reasonably good, wine tasting experience. 
+>This is the purpose of the Bordeaux vintage chart. Of course there are always some good and even great wines produced in moderate years. But one good wine, or even a few good wines does not make a great vintage.
+>
+
+
+> [...] having evolved as an adaptation to material insecurity, including pathogen prevalence, and other pressures that required avoiding individualistic behaviours that threatened the group welfare or challenges that required collective action. That is, collectivist cultures may have evolved a suite of behaviours that are well adapted to epidemics: less mouth-to-mouth romantic kissing and physical affection in general, more vigilance of others, even in-group members, social learning, conformity, obedience to authority, avoidance orientation, and so on. 
+>> `r tufte::quote_footer('--- Muthukrishna, 2020') [https://blogs.lse.ac.uk/businessreview/2020/04/22/long-read-cultural-evolution-covid-19-and-preparing-for-whats-next/]
 
 ```{r COLTC, fig.cap="Collectivism by Total Cases"}
 
@@ -545,7 +554,10 @@ df%>%
 ```
 
 So... collectivism seems to be really powerfull...
-Though not as powerful as in the LSE paper (I think R=-66 in their case). 
+Though not as powerful as in the LSE paper (I think R=-065 in their case). 
+But the LSE article uses CaseLog "Trajectory". Not sure how they calculate this. 
+It is also adjusted for population. 
+
 Let's do the Movement - Death figure again but this time for those countries that we have a score for collectivism.
 
 
@@ -708,7 +720,7 @@ df%>%
   filter(TotalDeaths>0)%>%
   mutate(DeathLog=scale(log(TotalDeaths)))%>%
   mutate(COL=100-IDV)%>%
-  ggscatterhist(x="COL", y="DeathLog",
+  ggscatterhist(x="risktaking", y="DeathLog",
               #size = "Population.density",
               #color = "blacl",
               #shape = 1,
@@ -719,7 +731,7 @@ df%>%
               conf.int = TRUE,
               cor.coef = TRUE,
               fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
               xlab = "Collectivism",
               margin.params = list(fill = "lightgray")
               
@@ -839,6 +851,203 @@ df%>%
 ```
 
 Rule of Law... meh...
+
+
+# Government efficiency
+
+From (Gelfand et al., 2020)[https://psyarxiv.com/m7f8a/]. 
+
+>We measured government efficiency using the World Bank’s
+Government Efficiency Index, which assesses the public sector’s performance in managing and
+regulating the political economy (see https://bit.ly/34lXAT9). According to this 5 metric, efficient
+governments score highly on 5 dimensions: they are efficient in spending public revenue, they do
+not place strong compliance burdens on the private sector, they are able to efficiently settle legal
+and judicial disputes in the private sector, they are receptive to challenges from the private
+sector, and they offer transparent information about changes in government policies and
+10 regulations affecting private sector activities.
+>> Gelfand et al., 2020
+
+
+```{r GovTC, fig.cap="Gov Efficiency by Total Cases."}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  ggscatterhist(x="Government.effectiveness.index", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .9, label.sep = "\n", size = 6),
+              xlab = "Government.effectiveness.index",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+Wait... is this what one should expect? 
+More efficient gvts lead to higher Cases?! 
+
+>Nations with efficient governments and tight cultures have been most effective at limiting COVID-19’s infection rate and mortality 5 likelihood, and this interaction of cultural tightness and government efficiency is robust to controlling for
+underreporting of cases, economic development, inequality, median age, population density, and
+authoritarianism. 
+
+No... 
+Sure, they talk about likelihoods, but there sth seems off here...
+
+By the way, if you use instead the "Govenrment.efficiency" score that is just the same with "Government.effectiveness.index", the relation almost disappears... 
+
+```{r GovTD, fig.cap="Government effectiveness by Total Deaths"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="Government.effectiveness.index", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -2.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Government.effectiveness.index",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r GovMove, fig.cap="Government effectiveness by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="Government.effectiveness.index", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Government effectiveness index",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+Similarly with movement. We seem to be getting the opposite story of what these papers seem to claim their indexes are doing...
+
+
+# Cultural Tightness
+
+>We measured cultural tightness using the index from Gelfand and
+colleagues (1), who measured tightness through 6 items, including “There are many social norms
+that people are supposed to abide by in this country,” and “In this country, if someone acts in an
+inappropriate way, others will strongly disapprove.” This measure was originally gathered by
+15 Gelfand (1) across 33 nations, and then expanded to 57 nations by Eriksson and colleagues (4)
+using the same procedure. The measure captures the strength of norms in a nation and the
+tolerance for people who violate norms (see supplemental materials for more information).
+
+```{r TightTC, fig.cap="Cultural Tightness by Total Cases"}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="Tightness", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .9, label.sep = "\n", size = 6),
+              xlab = "Cultural Tightness",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r TightTD, fig.cap="Tightness by Total Death"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="Tightness", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              #xlab = "Rule of Law",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r TightnessMove, fig.cap="Cultural Tightness by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="Tightness", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              #xlab = "Rule of Law",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+Once again, opposite results of the ones presented in the Gelfand paper...
+
+
 
 # Action points
 
