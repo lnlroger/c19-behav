@@ -1,9 +1,14 @@
 ---
 title: "Covid-19"
-output: bookdown::html_document2
-#output: html_document
+author: "Orestis, Lio"
+date: "01/05/2020"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
 editor_options: 
   chunk_output_type: console
+
 ---
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
@@ -31,11 +36,18 @@ library(sjPlot)
 library(sjmisc)
 library(sjlabelled)
 library(naniar)
+library(ggpubr)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("30042020_short.csv"))
-dfl<-read.csv(here::here("30042020_long.csv"))
+df<-read.csv(here::here("02052020_short.csv"))
+
+
+
+
+
+dfl<-read.csv(here::here("02052020_long.csv"))
+
 
 
 #df corresponds to the short version of the data, where we keep only the last observed date by Google. 
@@ -273,36 +285,42 @@ Not sure if this is the right approach, maybe I should let them drop out.
 
 
 df%>%
-  mutate(Google_1=Google+1)%>%
- mutate(Google_1pc=Google_1/Population)%>%
-  mutate(before_Google=log(Google_1pc))%>%
-  
+  filter(TotalDeaths>1)%>%
   filter(!is.na(Movement))%>%
+  #filter(!is.na(COL))%>%
+ mutate(CaseLog=scale(log(TotalCases)))%>%
+mutate(DeathLog=scale(log(TotalDeaths)))%>%
+mutate(Google_1=Google+1)%>%
+mutate(Google_1pc=Google_1/Population)%>%
+mutate(before_Google=log(Google_1pc))%>%
+  mutate(xint=median(DeathLog))%>%
+  mutate(yint=median(Movement))%>%
+  
+  
 # mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
 
-  ggplot(aes(x=Log_Death_pc,y=Movement),colour="blue")+
-  geom_vline(xintercept=-12.7)+
-  geom_hline(yintercept=-48.6)+
-  geom_point(aes(size=before_Google,colour=Lock),alpha=0.4)+
+  ggplot(aes(x=DeathLog,y=Movement),colour="blue")+
+  geom_vline(xintercept=-0.09)+
+  geom_hline(yintercept=-46)+
+  geom_point(aes(colour=Lock),alpha=0.9,size=2)+
   #guides(colour="legend")+
   stat_smooth()+
 
 
  # scale_y_discrete()+
-  scale_x_discrete()+
-  labs(x = 'Log_Death_pc',y = "Movement")+
+  #scale_x_discrete()+
+  labs(x = 'log_TotalDeaths',y = "Movement",color="Lockdown")+
   theme_bw()+
-  geom_text_repel(aes(x=Log_Death_pc,y=Movement,label=Country))+
- geom_text(x=-7.5,y=5,label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
-  geom_text(x=-16,y=-90,label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
+  geom_text_repel(aes(x=DeathLog,y=Movement,label=Country))+
+ geom_text(x=3,y=10,col="red",label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
+  geom_text(x=-1.6,y=-90,col="blue",label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
+ geom_text(x=-1.6,y=10,col="black",label=paste0("Date:",last(df$Date)), vjust = "inward", hjust = "inward")
 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
   #facet_wrap(~Lock)
 
 
 ```
-
-
 
 
 
@@ -313,9 +331,12 @@ Perhaps we can control for that with a proxy for health-services (e.g. hospital 
 
 Is there a story about the second quadrant? 
 Nordic countries seem to dominate this quadrant of high-movement & high death rate. 
-Is this is a story of climate or can we fit an explanation with a political science twist (e.g. value of individual liberties)? 
+Is this is a story of climate or can we fit an explanation with a political science twist (e.g. Individualistic vs. Collective countries)? 
+See relevant section. 
 
 Moreover, how do we control for the direction of causality? 
+Edit: the more recent Mobility reports no longer produce a negative relation between movement and death. 
+Probably because it takes some time for the quarantine to have an effect on deaths. 
 It's unlikely that reducing movement increases total deaths. 
 More likely, the countries that were stricter at reducing mobility were the ones that were mostly affected by Covid.
 I create the before_Google variable that tracks down the number of deaths attributed to covid-19 before the observation period started. 
@@ -356,41 +377,57 @@ tab_model(ctrl)
 The coefficient of Movement is reduced but not nearly as much as I would have thought...
 Maybe the amount of deaths before Google's observation period is not a good predictor. 
 
-```{r MobDeathBefore, fig.cap="Movement restriction and Death before Google"}
 
 
-df%>%
-  mutate(Google_1=Google+1)%>%
- mutate(Google_1pc=Google_1/Population)%>%
-  mutate(before_Google=log(Google_1pc))%>%
-  
+## Dynamic movement restriction and death
+
+In Figure \@ref(fig:MobDeathLock) the line type changes after the date that the country imposed its lockdown. 
+It's a bit messy still but I like the premise of the idea. 
+Maybe we can tidy it up a bit. 
+
+```{r MobDeathLock, fig.cap="Reaction to LockDown"}
+
+
+
+dfl%>%
+ # filter(TotalDeaths>1000)%>%
   filter(!is.na(Movement))%>%
-# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
+  filter(!is.na(Lock))%>%
+  arrange(Country,as.Date(Date))%>%
+  mutate(InLock=as.factor(ifelse(as.Date(Date)<as.Date(DateLockDown),0,1)))%>%
+  filter(!is.na(InLock))%>%
+# filter(Country=="Germany")%>%
+  #filter(!is.na(COL))%>%
+ mutate(CaseLog=scale(log(TotalCases)))%>%
+mutate(DeathLog=scale(log(TotalDeaths)))%>%
 
-  ggplot(aes(x=before_Google,y=Movement),colour="blue")+
-  #geom_vline(xintercept=-12.7)+
-  #geom_hline(yintercept=-48.6)+
-  geom_point(aes(colour=Lock),alpha=0.4)+
+# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
+  group_by(Country, Region)%>%
+  ggplot(aes(x=as.Date(Date),y=Movement,colour=Country,linetype=InLock))+
+  geom_line(size=1) +
+   
+  #scale_colour_brewer(palette = 'Set1')+
+  #guides(colour="legend")
+ 
+  scale_color_discrete(guide = FALSE)+
+  
+  #geom_vline(xintercept=DateLockDown)+
+  #geom_hline(yintercept=-46)+
+  #geom_point(aes(colour=Lock),alpha=0.9,size=2)+
   #guides(colour="legend")+
-  stat_smooth()+
+  facet_wrap(~Region)+
+  #scale_color_brewer()+
 
 
  # scale_y_discrete()+
-  scale_x_discrete()+
-  labs(x = 'before_Google',y = "Movement")+
-  theme_bw()+
-  geom_text_repel(aes(x=before_Google,y=Movement,label=Country))+
- geom_text(x=-7.5,y=5,label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
-  geom_text(x=-16,y=-90,label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
+  #scale_x_discrete()+
+  labs(x = 'Date',y = "Movement",color="Lockdown")+
+  theme_bw()
 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  #facet_wrap(~Lock)
+  geom_text_repel(aes(x=Date,y=Movement,label=Country))
 
 
 ```
-
-
-
 
 
 # Flattening the curve
@@ -425,8 +462,383 @@ dfl%>%
 
 ```
 
+# Collectivism
 
 
+```{r COLTC, fig.cap="Collectivism by Total Cases"}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Collectivism",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+
+```
+
+
+```{r COLTD, fig.cap="Collectivism by Total Death"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Collectivism",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+#ggarrange(c1,c2)
+```
+
+
+```{r COLMov, fig.cap="Collectivism by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Collectivism",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+So... collectivism seems to be really powerfull...
+Though not as powerful as in the LSE paper (I think R=-66 in their case). 
+Let's do the Movement - Death figure again but this time for those countries that we have a score for collectivism.
+
+
+
+```{r MobDeathCOL, fig.cap="Movement restriction and Death - Collectivism"}
+
+
+df%>%
+  filter(TotalDeaths>1)%>%
+  filter(!is.na(Movement))%>%
+  filter(!is.na(COL))%>%
+ mutate(CaseLog=scale(log(TotalCases)))%>%
+mutate(DeathLog=scale(log(TotalDeaths)))%>%
+mutate(Google_1=Google+1)%>%
+mutate(Google_1pc=Google_1/Population)%>%
+mutate(before_Google=log(Google_1pc))%>%
+  mutate(xint=median(DeathLog))%>%
+  mutate(yint=median(Movement))%>%
+  
+  
+# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
+
+  ggplot(aes(x=DeathLog,y=Movement),colour="blue")+
+  geom_vline(xintercept=-0.09)+
+  geom_hline(yintercept=-46)+
+  geom_point(aes(colour=COL>median(COL)),alpha=0.9,size=2)+
+  #guides(colour="legend")+
+  stat_smooth()+
+
+
+ # scale_y_discrete()+
+  #scale_x_discrete()+
+  labs(x = 'log_TotalDeaths',y = "Movement",color="Collectivism")+
+  theme_bw()+
+  geom_text_repel(aes(x=DeathLog,y=Movement,label=Country))+
+ geom_text(x=3,y=10,col="red",label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
+  geom_text(x=-1.6,y=-90,col="blue",label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
+ geom_text(x=-1.6,y=10,col="black",label=paste0("Date:",last(df$Date)), vjust = "inward", hjust = "inward")
+
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  #facet_wrap(~Lock)
+
+
+```
+
+# Patience
+
+
+```{r PatienceTC, fig.cap="Patience by Total Cases"}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="patience", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Patience",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r PatienceTD, fig.cap="Patience by Total Death"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="patience", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Patience",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r patienceMove, fig.cap="Patience by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="patience", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Patience",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+And patience is not bad either...
+
+
+# Risk Taking
+
+
+```{r RiskTC, fig.cap="Risk Taking by Total Cases"}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="risktaking", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "RiskTaking",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r RiskTD, fig.cap="Collectivism by Total Death"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Collectivism",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r RiskMove, fig.cap="Risk Taking by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="COL", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Risk Taking",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+Risk taking... not so great. 
+
+
+# Rule of Law
+
+
+```{r ROLTC, fig.cap="Rule of Law by Total Cases"}
+
+df%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="ROL", y="CaseLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .9, label.sep = "\n", size = 6),
+              xlab = "Rule of Law",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r ROLTD, fig.cap="Rule of Law by Total Death"}
+df%>%
+  filter(TotalDeaths>0)%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="ROL", y="DeathLog",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -2.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Rule of Law",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+
+```{r ROLMove, fig.cap="Rule of Law by Movement"}
+df%>%
+ # filter(Movement)%>%
+  #mutate(MoveLog=scale(log(Movement)))%>%
+  mutate(COL=100-IDV)%>%
+  ggscatterhist(x="ROL", y="Movement",
+              #size = "Population.density",
+              #color = "blacl",
+              #shape = 1,
+              label = "Country",
+              repel = T,
+              add = "reg.line",
+              add.params = list(fill = "lightgray"),
+              conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
+              xlab = "Rule of Law",
+              margin.params = list(fill = "lightgray")
+              
+)
+
+
+```
+
+Rule of Law... meh...
 
 # Action points
 
