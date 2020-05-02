@@ -114,6 +114,7 @@ weather_long<-read.csv("Weather/covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(Date,format="%d/%m/%y"))%>%
+  left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
   mutate(humidityBefore=case_when(Date<as.Date("2020-02-23")~humidity))%>%
