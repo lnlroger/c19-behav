@@ -47,8 +47,12 @@ days<-read.csv(here::here("CasesDeaths/owid-covid-data.csv"))%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
   mutate(Date=as.Date(date))%>%
   #filter(Date!="2020-12-31")%>%
-  mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths))
-
+  mutate(DeathsBeforeGoogle=case_when(Date=="2020-03-19"~total_deaths)) %>%
+  left_join(lockdown[c("Country", "DateLockDown")], by = "Country") %>%
+  mutate(DateLockDown = as.Date(DateLockDown, format = "%d/%m/%Y")) %>%
+  mutate(DaysSinceLockdown = difftime(Date,DateLockDown,
+                                      units = "days")) 
+  
 
 q<-days%>%
   group_by(Country)%>%
@@ -113,10 +117,10 @@ weather_short<-read.csv("Weather/covid_dataset.csv")%>%
 weather_long<-read.csv("Weather/covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
-  left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
-  mutate(Date=as.Date(Date,format="%d/%m/%y"),
-         DateLockDown = as.Date(DateLockDown,format="%d/%m/%y")) %>%
-  mutate(temperatureBeforeLockdown = )
+  # left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
+  # mutate(Date=as.Date(Date,format="%d/%m/%y"),
+  #        DateLockDown = as.Date(DateLockDown,format="%d/%m/%y")) %>%
+  # mutate(temperatureBeforeLockdown = )
   mutate(temperatureBefore=case_when(Date<as.Date("2020-02-23")~temperature))%>%
   mutate(temperatureAfter=case_when(Date>=as.Date("2020-02-23")~temperature))%>%
   mutate(humidityBefore=case_when(Date<as.Date("2020-02-23")~humidity))%>%
@@ -253,7 +257,9 @@ hf<-read.csv("Collectivism/hofstede.csv")%>%
 
 
 
+# Previous epidemics
 
+epidemics <- read.csv("EM-DAT/Data.csv")
 
 
 
@@ -292,7 +298,7 @@ df2<-df2%>%
 
 
 
-#write.csv(df2,"02052020_short.csv")
+write.csv(df2,"02052020_short.csv")
 
 
 # Long version (daily data)
@@ -322,14 +328,15 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
+df3$DateLockDown <- df3$DateLockDown.y 
 
-<<<<<<< HEAD
-write.csv(df3,"01052020_long.csv")
-=======
-df3<-df3%>%
-  mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
-  mutate(Date=as.Date(Date))
+#<<<<<<< HEAD
+write.csv(df3,"02052020_long.csv")
+#=======
+# df3<-df3%>%
+#   mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
+#   mutate(Date=as.Date(Date))
 
 #write.csv(df3,"02052020_long.csv")
->>>>>>> 279cef139d6ef07a57821ba0865485fe87fb1732
+#>>>>>>> 279cef139d6ef07a57821ba0865485fe87fb1732
 

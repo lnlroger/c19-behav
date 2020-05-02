@@ -462,6 +462,41 @@ dfl%>%
 
 ```
 
+# Change in Movement by Regime Type
+
+The figure below plots changes in movement as reported by google around the time of the lockdown (Note: Change in movement is still relative to google's baseline).
+
+```{r movement.regime, fig.cap="Change in Movement Relative to Lockdown Date"}
+# Average response by regime type
+
+df.plot.mov <- df %>%
+  mutate(regime = ifelse(polity2 <= -6,"autocracy",
+                         ifelse(polity2 <= 5,"anocracy",
+                                ifelse(polity2 > 5,"democracy",NA))))
+
+dfl.plot.mov <- dfl %>%
+  left_join(dplyr::select(df.plot.mov,regime,Country))
+
+movement.regime <- dplyr::select(dfl.plot.mov,Country,Date,Movement,regime,DaysSinceLockdown) %>%
+  group_by(regime,DaysSinceLockdown) %>%
+  summarise(mean.movement = mean(Movement,na.rm = TRUE)) %>%
+  filter((DaysSinceLockdown > -50) & (DaysSinceLockdown <76))
+
+
+plot.movement.regime <- ggplot(data = movement.regime, mapping = aes(DaysSinceLockdown,mean.movement,group = regime)) +
+  geom_line(aes(colour = regime)) +
+  geom_vline(xintercept = 0) +
+  theme_minimal()
+plot.movement.regime
+```
+
+Across regime types (PolityIV), movement was noticeably reduced before the imposition of formal lockdowns. This might be because of informal appeals, citizens' own initiative or fear, or weaker policy measures that didn't qualify as a fully-fledged lockdown.
+
+While all curves seem to move together quite neatly (no difference across regimes), there is a niticeable fivergence after something like 45 days, where movement in democracies picks up much more than autocracies.
+I do however suspect that this is based on a very small sample at that point, as not many countries have been in a lockdown for that long.
+
+NB: We might want to start coding lifting/relaxation of lockdowns.
+
 # Collectivism
 
 
