@@ -19,7 +19,7 @@ mobility_long <- read.csv("Google/Global_Mobility_Report.csv")%>%
   
 
 mobility_short<-mobility_long%>%
-  filter(Date==as.Date("2020-04-11"))
+  filter(Date==last(Date))
 
 
 # Lockdown dates ----
@@ -243,11 +243,25 @@ countries<-read.csv("Countries/countries_custom.csv")%>%
 
 
 
+
+
+
+#Collectivism - Hofstede
+hf<-read.csv("Collectivism/hofstede.csv")%>%
+  mutate(Country=countrycode(Country,"country.name","country.name"))%>%
+  mutate(COL=100-IDV)
+
+
+
+
+
+
+
 # Merge into single dataframes ----
 
 # Short version (pure cross-section)
 
-df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
+df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_short,
   DaysLock_short,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -258,7 +272,8 @@ df_short <- merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   social_prefs,by="Country",all=T),
   countries,by="Country",all=T),
   polityIV, by="Country",all=T),
-  UNpop, by="Country",all=T)
+  UNpop, by="Country",all=T),
+  hf,by="Country",all=T)
 
 
 df_short<-df_short%>%
@@ -271,14 +286,18 @@ df2$Log_Death_pc<-ifelse(df2$Death_pc>0,log(df2$Death_pc),NA)
 df2$Google_pc<-df2$Google/df2$Population
 df2$Log_Google_pc<-ifelse(df2$Google_pc>0,log(df2$Google_pc),NA)
 
+df2<-df2%>%
+  mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
+  mutate(Date=as.Date(Date))
 
 
-#write.csv(df2,"30042020_short.csv")
+
+#write.csv(df2,"02052020_short.csv")
 
 
 # Long version (daily data)
 
-df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
+df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   mobility_weather_death,
   lockdown,by="Country",all=T),
   wvs,by="Country",all=T),
@@ -289,7 +308,8 @@ df_long<-merge(merge(merge(merge(merge(merge(merge(merge(merge(merge(
   countries,by="Country",all=T),
   time_short,by="Country",all=T),
   polityIV,by="Country",all=T),
-  UNpop,by="Country",all=T)
+  UNpop,by="Country",all=T),
+  hf,by="Country",all=T)
 
 df_long<-df_long%>%
   filter(!is.na(Country))
@@ -303,5 +323,13 @@ df3$Log_Death_pc<-ifelse(df3$Death_pc>0,log(df3$Death_pc),NA)
 df3$Google_pc<-df3$DeathsBeforeGoogle/df3$Population
 df3$Log_Google_pc<-ifelse(df3$Google_pc>0,log(df3$Google_pc),NA)
 
+<<<<<<< HEAD
 write.csv(df3,"01052020_long.csv")
+=======
+df3<-df3%>%
+  mutate(DateLockDown=as.Date(DateLockDown,format="%d/%m/%Y"))%>%
+  mutate(Date=as.Date(Date))
+
+#write.csv(df3,"02052020_long.csv")
+>>>>>>> 279cef139d6ef07a57821ba0865485fe87fb1732
 
