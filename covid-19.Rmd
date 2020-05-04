@@ -293,14 +293,14 @@ mutate(DeathLog=scale(log(TotalDeaths)))%>%
 mutate(Google_1=Google+1)%>%
 mutate(Google_1pc=Google_1/Population)%>%
 mutate(before_Google=log(Google_1pc))%>%
-  mutate(xint=median(DeathLog))%>%
+  mutate(xint=median(log(TotalDeaths/Population)))%>%
   mutate(yint=median(Movement))%>%
   
   
 # mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
 
-  ggplot(aes(x=DeathLog,y=Movement),colour="blue")+
-  geom_vline(xintercept=-0.09)+
+  ggplot(aes(x=log(TotalDeaths/Population),y=Movement),colour="blue")+
+  geom_vline(xintercept=-11.99)+
   geom_hline(yintercept=-46)+
   geom_point(aes(colour=Lock),alpha=0.9,size=2)+
   #guides(colour="legend")+
@@ -311,7 +311,7 @@ mutate(before_Google=log(Google_1pc))%>%
   #scale_x_discrete()+
   labs(x = 'log_TotalDeaths',y = "Movement",color="Lockdown")+
   theme_bw()+
-  geom_text_repel(aes(x=DeathLog,y=Movement,label=Country))+
+  geom_text_repel(aes(x=log(TotalDeaths/Population),y=Movement,label=Country))+
  geom_text(x=3,y=10,col="red",label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
   geom_text(x=-1.6,y=-90,col="blue",label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
  geom_text(x=-1.6,y=10,col="black",label=paste0("Date:",last(df$Date)), vjust = "inward", hjust = "inward")
@@ -396,13 +396,13 @@ dfl%>%
   arrange(Country,as.Date(Date))%>%
   mutate(InLock=as.factor(ifelse(as.Date(Date)<as.Date(DateLockDown),0,1)))%>%
   filter(!is.na(InLock))%>%
-# filter(Country=="Germany")%>%
+ filter(Country=="Greece"|Country=="Germany")%>%
   #filter(!is.na(COL))%>%
  mutate(CaseLog=scale(log(TotalCases)))%>%
 mutate(DeathLog=scale(log(TotalDeaths)))%>%
 
 # mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
-  group_by(Country, Region)%>%
+  #group_by(Country, Region)%>%
   ggplot(aes(x=as.Date(Date),y=Movement,colour=Country,linetype=InLock))+
   geom_line(size=1) +
    
@@ -512,9 +512,10 @@ From the LSE article:
 ```{r COLTC, fig.cap="Collectivism by Total Cases"}
 
 df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="COL", y="CaseLog",
+  mutate(CaseLog=scale(log(TotalCases/Population)))%>%
+  mutate(GDP_pc=log(GDP_pc))%>%
+  #mutate(COL=100-IDV)%>%
+  ggscatterhist(x="ROL", y="COL",
               #size = "Population.density",
               #color = "blacl",
               #shape = 1,
@@ -525,8 +526,8 @@ df%>%
               conf.int = TRUE,
               cor.coef = TRUE,
               fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Collectivism",
+              cor.coeff.args = list(method = "pearson",  label.sep = "\n", size = 6),
+             # xlab = "Collectivism",
               margin.params = list(fill = "lightgray")
               
 )
@@ -539,7 +540,7 @@ df%>%
 ```{r COLTD, fig.cap="Collectivism by Total Death"}
 df%>%
   filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  mutate(DeathLog=scale(log(TotalDeaths/Population)))%>%
   mutate(COL=100-IDV)%>%
   ggscatterhist(x="COL", y="DeathLog",
               #size = "Population.density",
@@ -906,7 +907,7 @@ sector, and they offer transparent information about changes in government polic
 ```{r GovTC, fig.cap="Gov Efficiency by Total Cases."}
 
 df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(CaseLog=scale(log(TotalCases/Population)))%>%
   ggscatterhist(x="Government.effectiveness.index", y="CaseLog",
               #size = "Population.density",
               #color = "blacl",
