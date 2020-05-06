@@ -40,13 +40,13 @@ library(ggpubr)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv("02052020_short.csv")
+df<-read.csv("04052020_short.csv")
 
 
 
 
 
-dfl<-read.csv("02052020_long.csv")
+dfl<-read.csv("04052020_long.csv")
 
 #https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
@@ -908,7 +908,7 @@ sector, and they offer transparent information about changes in government polic
 
 df%>%
   mutate(CaseLog=scale(log(TotalCases/Population)))%>%
-  ggscatterhist(x="Government.effectiveness.index", y="CaseLog",
+  ggscatterhist(x="Government.efficiency", y="CaseLog",
               #size = "Population.density",
               #color = "blacl",
               #shape = 1,
@@ -920,7 +920,7 @@ df%>%
               cor.coef = TRUE,
               fullrange = TRUE,
               cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .9, label.sep = "\n", size = 6),
-              xlab = "Government.effectiveness.index",
+             # xlab = "Government.effectiveness.index",
               margin.params = list(fill = "lightgray")
               
 )
@@ -945,7 +945,7 @@ df%>%
   filter(TotalDeaths>0)%>%
   mutate(DeathLog=scale(log(TotalDeaths)))%>%
   mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Government.effectiveness.index", y="DeathLog",
+  ggscatterhist(x="Government.efficiency", y="DeathLog",
               #size = "Population.density",
               #color = "blacl",
               #shape = 1,
@@ -971,7 +971,7 @@ df%>%
  # filter(Movement)%>%
   #mutate(MoveLog=scale(log(Movement)))%>%
   mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Government.effectiveness.index", y="Movement",
+  ggscatterhist(x="Government.efficiency", y="Movement",
               #size = "Population.density",
               #color = "blacl",
               #shape = 1,
@@ -1004,82 +1004,10 @@ inappropriate way, others will strongly disapprove.” This measure was original
 using the same procedure. The measure captures the strength of norms in a nation and the
 tolerance for people who violate norms (see supplemental materials for more information).
 
-```{r TightTC, fig.cap="Cultural Tightness by Total Cases"}
 
-df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Tightness", y="CaseLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .9, label.sep = "\n", size = 6),
-              xlab = "Cultural Tightness",
-              margin.params = list(fill = "lightgray")
-              
-)
+We no longer have that - due to mergergs prob. Doesn't really matter. The next line reads the previous conclusion from that analysis.
 
 
-```
-
-
-```{r TightTD, fig.cap="Tightness by Total Death"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Tightness", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              #xlab = "Rule of Law",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-
-```{r TightnessMove, fig.cap="Cultural Tightness by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Tightness", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              #xlab = "Rule of Law",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
 
 Once again, opposite results of the ones presented in the Gelfand paper...
 
