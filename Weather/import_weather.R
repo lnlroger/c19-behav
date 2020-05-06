@@ -21,7 +21,7 @@ weather_short<-read.csv("Weather/covid_dataset.csv")%>%
 weather_long<-read.csv("Weather/covid_dataset.csv")%>%
   rename(Country=Country.Region)%>%
   mutate(Country=countrycode(Country,'country.name','country.name')) %>%
-  # left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
+  left_join(lockdown[c("Country", "DateLockDown")],by = "Country") %>%
   mutate(Date=as.Date(Date,format="%d/%m/%y"),
          DateLockDown = as.Date(DateLockDown,format="%d/%m/%y")) %>%
   # mutate(temperatureBeforeLockdown = )
