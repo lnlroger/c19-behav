@@ -1,0 +1,227 @@
+---
+title: "CovidNet Dataset Exploration"
+author: "Lio"
+date: "07/05/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library("countrycode")
+```
+
+## CoronaNet Dataset
+
+The CoronaNet dataset records government responses to the Covid-19 pandemic and underlies the paper 'A Retrospective Bayesian Model for Measuring Covariate Effects on Observed Covid-19 Test and Case Counts' by Cheng et al. (2020). The dataset, paper and all related files and code can be found at https://github.com/saudiwin/corona_tscs.
+
+The dataset is fairly complex, as it covers more than 140 countries and contains about 14,000 government actions since January 2020. In its raw form, it is at the country-day-action level, with several dimensions that characterise each government action. This document seeks to improve the understanding of the dataset in a rather descriptive way, and ultimately to bring it into a form that lends itself to further analysis regarding behavioural factors that influence political response and / or epidemiology of Covid-19. 
+
+```{r import data, echo=FALSE}
+dta <- read.csv("coronanet_release.csv") %>%
+  mutate(continent = countrycode(ISO_A3, "iso3c", "continent")) %>%
+  mutate(region = countrycode(ISO_A3, "iso3c", "region"))
+```
+## Distribution of reported cases
+
+```{r case counts, echo=FALSE}
+
+# By type ----
+ggplot(dta,mapping = aes(y = type)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Most entries describe intervenrions related to health resources, followed bz external border restrictions, closure of schools, restriction of non/esential business, and quarantine/lockdown.
+
+Each of these types of events is divided into sub-types. Below are breakdowns of the most frequent categories.
+
+```{r type breakdowns, echo=FALSE}
+
+# By sub-type for most frequent types
+
+is.health.resources <- which(dta$type == "Health Resources")
+
+ggplot(dta[is.health.resources,],mapping = aes(y = type_sub_cat)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+is.external.border <- which(dta$type == "External Border Restrictions")
+
+ggplot(dta[is.external.border,],mapping = aes(y = type_sub_cat)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+is.nonessential.business <- which(dta$type == "Restriction of Non-Essential Businesses")
+
+ggplot(dta[is.nonessential.business,],mapping = aes(y = type_sub_cat)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+is.schools <- which(dta$type == "Closure of Schools")
+
+ggplot(dta[is.schools,],mapping = aes(y = type_sub_cat)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+is.lockdown <- which(dta$type == "Quarantine/Lockdown")
+
+ggplot(dta[is.lockdown,],mapping = aes(y = type_sub_cat)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+The reports further details about each measure; a potentially important one is whether measures are mandatory or voluntary. Let's have a look for quarantine/lockdowns (note that there are a bunch of categories, I simplify it to mandatory and voluntary):
+
+```{r lockdown compliance, echo=FALSE}
+
+# Types of quarantine (compliance)
+
+dta <- mutate(dta, compliance_binary = ifelse(substr(compliance,1,9) == "Mandatory", "Mandatory",
+                                              ifelse(substr(compliance,1,9) == "Voluntary", "Voluntary", NA)))
+
+ggplot(dta[is.lockdown,],mapping = aes(y = compliance_binary)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+There are something like 1000 mandatory lockdowns measures recorded, obviously this doesn't exactly coincide with what we normally consider 'the' lockdown (of which you wouldn't expect more than one per country), so the first challenge is to identify what constitutes a "proper" lockdown.
+
+## Lockdowns by country
+
+A first piece of the puzzle may lie in the distribution of lockdowns measures by country (only 40 countries with the highest number of lockdown measures included in the plot for readability):
+
+```{r lockdowns by country, echo=FALSE}
+
+# Distribution of lockdown announcements by country
+
+lockdown.per.country <- dta[is.lockdown,] %>%
+  group_by(country) %>%
+  tally() %>%
+  arrange(desc(n))
+
+ggplot(lockdown.per.country[1:40,],mapping = aes(x = country,y = n)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+China and the US stick out, I suspect substantial reporting bias. The large number of actions isn't surprising in the federal US however, and in general federalist states will be a bit of a challenge in the analysis / aggregation of the data. Plotted below is the administrative level at which lockdowns / lockdown measures are recorded (globally):
+
+```{r lockdown admin level, echo=FALSE}
+
+# Administrative level of lockdowns
+
+dta <- mutate(dta, level_binary = ifelse(init_country_level %in% c("National", "No, it is at the national level"), 
+                                         "National",
+                                         ifelse(init_country_level %in% c("Municipal", "Yes, it is at the province/state level"),
+                                                "Sub-National",
+                                                NA
+                                                )))
+
+ggplot(dta, mapping = aes(y = level_binary)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Indeed, more than half of those measures aren't at the national level.
+
+
+## Lockdowns over time
+
+Let us also look at when those lockdown measures came into place.
+
+```{r lockdown time, echo=FALSE}
+
+# Distribution of lockdown announcements in time
+
+lockdown.per.day <- dta[is.lockdown,] %>%
+  group_by(date_start) %>%
+  tally()
+  
+ggplot(lockdown.per.day,mapping = aes(x = as.Date(date_start),y = n)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+As expected, there is a bunching around mid- to end-March.
+
+## Policy Activity Index
+
+Cheng et al. (2020) also construct a 'Policy Activity Index' - I am not entirely sure how this is constructed yet and what it is meant to measure. Here is what it looks like:
+
+```{r index, echo = FALSE}
+
+# Index ----
+
+index.daily <- dta %>% # Daily series of index by country
+  group_by(country, date_start) %>%
+  summarise(index_high = mean(index_high_est, na.rm = TRUE),
+            index_median = mean(index_med_est, na.rm = TRUE),
+            index_low = mean(index_low_est), na.rm = TRUE,
+            continent = first(continent),
+            region = first(region)) %>%
+  arrange(country, date_start) %>%
+  filter(as.Date(date_start) < as.Date("2020-04-20")) 
+
+index.daily.continent <- index.daily %>%
+  group_by(continent, date_start) %>%
+  summarise(index_high = median(index_high, na.rm = TRUE),
+            index_median = median(index_median, na.rm = TRUE),
+            index_low = median(index_low), na.rm = TRUE) %>%
+  na.omit()
+
+index.daily.region <- index.daily %>%
+  group_by(region, date_start) %>%
+  summarise(index_high = median(index_high, na.rm = TRUE),
+            index_median = median(index_median, na.rm = TRUE),
+            index_low = median(index_low), na.rm = TRUE) %>%
+  na.omit()
+
+index.daily.global <- index.daily %>%
+  group_by(date_start) %>%
+  summarise(index_high = median(index_high, na.rm = TRUE),
+            index_median = median(index_median, na.rm = TRUE),
+            index_low = median(index_low), na.rm = TRUE) %>%
+  mutate(country = "World",
+         continent = "World",
+         region = "World") %>%
+  na.omit()
+
+
+
+# Index by country
+
+ggplot(index.daily, mapping = aes(x = as.Date(date_start), y = index_median, colour = country)) +
+  geom_line() +
+  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        legend.position = "none")
+
+# Index by continent
+
+ggplot(index.daily.continent, mapping = aes(x = as.Date(date_start), y = index_median, colour = continent)) +
+  geom_smooth(span = 0.2, se=FALSE) +
+  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Index by region
+
+ggplot(index.daily.region, mapping = aes(x = as.Date(date_start), y = index_median, colour = region)) +
+  geom_smooth(span = 0.2, se=FALSE) +
+  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+## Next steps 
+
+* Code most relevant events into country-day format (decide what's relevant)
+* Merge with existing dataset
+* Compare events as derived from here with lockdowns as currently recorded
+* Explore time series analysis / macro panel options with complete dataset
