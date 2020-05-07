@@ -501,10 +501,6 @@ NB: We might want to start coding lifting/relaxation of lockdowns.
 
 From the LSE article: 
 
-> Rankings and scores in the Bordeaux vintage chart are not awarded for a mathematical average of scores. The years in the Bordeaux vintage chart are scored using a rough average based on your chance of randomly purchasing a bottle of Bordeaux wine from the vintage of your choice and have it offer a reasonably good, wine tasting experience. 
->This is the purpose of the Bordeaux vintage chart. Of course there are always some good and even great wines produced in moderate years. But one good wine, or even a few good wines does not make a great vintage.
->
-
 
 > [...] having evolved as an adaptation to material insecurity, including pathogen prevalence, and other pressures that required avoiding individualistic behaviours that threatened the group welfare or challenges that required collective action. That is, collectivist cultures may have evolved a suite of behaviours that are well adapted to epidemics: less mouth-to-mouth romantic kissing and physical affection in general, more vigilance of others, even in-group members, social learning, conformity, obedience to authority, avoidance orientation, and so on. 
 >> `r tufte::quote_footer('--- Muthukrishna, 2020') [https://blogs.lse.ac.uk/businessreview/2020/04/22/long-read-cultural-evolution-covid-19-and-preparing-for-whats-next/]
@@ -1016,10 +1012,11 @@ Once again, opposite results of the ones presented in the Gelfand paper...
 # Action points
 
 * Find the country (region) - level individualism/ collectivism (see Hofstede, Gelfland, etc.) & integrate.
-* Distance from lockdown in days.
+Liter* Distance from lockdown in days.
 * glmnet selects the variables that together offer the best predictive power. In the interesting model we see what I would think is somewhat counter-intuitive variables (like patience:in, lokc:out). Let's run the models suggested by glmnet and compare. 
   * Lock is actually out for a technical reason which we should prob. fix. 
-* Finish Literature review on individual and collectivism
+* Finish 
+ature review on individual and collectivism
 * Integrate the behavioural data and strictness of lock-down?
   * Data structure: let's make sure it works. 
   * careful in integrating the strictness of lock-down. Multiconearity (do they take into account the Movement reduction for eg?). 
@@ -1028,7 +1025,6 @@ Once again, opposite results of the ones presented in the Gelfand paper...
   
 * What is the Death_Disease about? 
   
-
 
 
 
