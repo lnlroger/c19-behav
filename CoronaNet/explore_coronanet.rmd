@@ -219,9 +219,50 @@ ggplot(index.daily.region, mapping = aes(x = as.Date(date_start), y = index_medi
 
 ```
 
+## Identifying lockdown dates
+
+In order to identify the dates of what we would call a lockdown, I pick the first date a measure came into effect that is categorised as (i) Quarantine / Lockdown and (ii) Mandatory.
+
+```{r compare lockdowns, echo=FALSE}
+# Identify 'initial' mandatory lockdown and compare with dates we previously registered ----
+
+first.lockdown <- dta %>%
+  filter(type == "Quarantine/Lockdown",
+         compliance_binary == "Mandatory") %>%
+  group_by(country) %>%
+  arrange(as.Date(date_start)) %>%
+  mutate(first_lockdown = as.Date(date_start)) %>%
+  select(country,first_lockdown) %>%
+  slice(1) %>%
+  distinct()
+
+
+compare.lockdowns <- read.csv("../df_covid_short.csv") %>%
+  select("Country", "DateLockDown") %>%
+  mutate(country = Country) %>%
+  select(-Country) %>%
+  left_join(first.lockdown, "country") %>%
+  na.omit()
+
+ggplot(compare.lockdowns, aes(x = DateLockDown, y = first_lockdown)) +
+  geom_point() +
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        legend.position = "none")
+
+
+dta <- left_join(dta,first.lockdown, by = "country")
+
+```
+
+Plotting those against our originally recorded lockdown dates creates a real mess, so clearly this needs some kind of reconciliation (the same exercise filtering only for nation-wide lockdowns yields the same).
+
+
+
+
+
 ## Next steps 
 
 * Code most relevant events into country-day format (decide what's relevant)
 * Merge with existing dataset
-* Compare events as derived from here with lockdowns as currently recorded
 * Explore time series analysis / macro panel options with complete dataset

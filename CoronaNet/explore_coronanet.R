@@ -1,3 +1,4 @@
+rm(list = ls())
 library("tidyverse")
 library("countrycode")
 
@@ -160,6 +161,37 @@ ggplot(index.daily.region, mapping = aes(x = as.Date(date_start), y = index_medi
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
+rm(country.count,index.daily,index.daily.continent,index.daily.global,
+   index.daily.region,lockdown.per.country,lockdown.per.day)
+
+# Identify 'initial' mandatory lockdown and compare with dates we previously registered ----
+
+first.lockdown <- dta %>%
+  filter(type == "Quarantine/Lockdown",
+         compliance_binary == "Mandatory") %>%
+  group_by(country) %>%
+  arrange(as.Date(date_start)) %>%
+  mutate(first_lockdown = as.Date(date_start)) %>%
+  select(country,first_lockdown) %>%
+  slice(1) %>%
+  distinct()
+
+
+compare.lockdowns <- read.csv("../df_covid_short.csv") %>%
+  select("Country", "DateLockDown") %>%
+  mutate(country = Country) %>%
+  select(-Country) %>%
+  left_join(first.lockdown, "country") %>%
+  na.omit()
+
+ggplot(compare.lockdowns, aes(x = DateLockDown, y = first_lockdown)) +
+  geom_point() +
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        legend.position = "none")
+
+
+dta <- left_join(dta,first.lockdown, by = "country")
 
 
 
