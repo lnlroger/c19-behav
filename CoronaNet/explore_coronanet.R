@@ -1,4 +1,5 @@
 rm(list = ls())
+library("plyr")
 library("tidyverse")
 library("countrycode")
 
@@ -168,7 +169,8 @@ rm(country.count,index.daily,index.daily.continent,index.daily.global,
 
 first.lockdown <- dta %>%
   filter(type == "Quarantine/Lockdown",
-         compliance_binary == "Mandatory") %>%
+         compliance_binary == "Mandatory",
+         level_binary == "National") %>%
   group_by(country) %>%
   arrange(as.Date(date_start)) %>%
   mutate(first_lockdown = as.Date(date_start)) %>%
@@ -193,5 +195,34 @@ ggplot(compare.lockdowns, aes(x = DateLockDown, y = first_lockdown)) +
 
 dta <- left_join(dta,first.lockdown, by = "country")
 
+rm(compare.lockdowns, first.lockdown)
+
+# Plot policy index versus mobility
+
+countries.plot <- c("United Kingdom", "France", "Germany", "Italy")
+
+dta.plot.movement.index <- dta %>% # Daily series of index and mobility by country
+  group_by(country, date_start) %>%
+  dplyr::summarise(index_high = mean(index_high_est, na.rm = TRUE),
+            index_median = mean(index_med_est, na.rm = TRUE),
+            index_low = mean(index_low_est, na.rm = TRUE),
+            continent = first(continent),
+            region = first(region)) %>%
+  arrange(country, date_start) %>%
+  filter(as.Date(date_start) < as.Date("2020-04-20")) %>%
+  left_join(read.csv("../df_covid_long.csv"), by = c("country" = "Country", "date_start" = "Date")) %>%
+  select(country, date_start, index_median, Movement, DateLockDown) %>%
+  filter(country %in% countries.plot) %>%
+  pivot_longer(-c(country,date_start,DateLockDown), names_to = "series", values_to = "value") %>%
+  arrange(country, series, date_start)
+  
+  
+
+
+ggplot(dta.plot.movement.index, aes(x = as.Date(date_start), y = value, colour = series)) +
+  geom_line(size = 1) +
+  geom_vline(data = ddply(dta.plot.movement.index, "country", summarize, lockdown = as.Date(first(DateLockDown), format = "%d/%m/%Y")), aes(xintercept=lockdown)) +
+  facet_grid(series~country, scales = "free") +
+  theme(legend.position = "none")
 
 

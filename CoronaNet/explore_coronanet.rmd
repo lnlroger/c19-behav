@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library("plyr")
 library("tidyverse")
 library("countrycode")
 ```
@@ -258,7 +259,55 @@ dta <- left_join(dta,first.lockdown, by = "country")
 Plotting those against our originally recorded lockdown dates creates a real mess, so clearly this needs some kind of reconciliation (the same exercise filtering only for nation-wide lockdowns yields the same).
 
 
+## Policy activity index and movement
 
+Below is a plot of the Cheng Policy Activity Index and Movement (Google) for a few selected countries.
+
+The definition of the index is a little vague, the researchers don't seem comfortable providing any straightforward explanation as to what it represents. The main criterion seems to be the 'costliness' of any given policy for a givernment:
+
+> Given the enormous size of our data, we constructed a policy activity index that summarizes the different indicators in our data for each country for each day since Dec 31st 2019. The index is produced using a statistical model that takes into account which policies seem to be more costly/difficult to implement than other policies. For more details on the methodology, see our working paper. [https://coronanet-project.org/visuals.html]
+
+The working paper does't offer much of a clarification (but it does show parameters, like the relative weight of different measures); my main concerns are:
+
+* Is 'cost' confounded with 'usefulness'? I'm not sure whether a policy is considered costly because it is implemented late or only briefly, or because perhaps the coder had to rate it. If the former is the case, the policy may well have been implemented late / removed early because it just isn't that effective in containing the spread of the virus.
+* They seem to aim at making 'policy activity' or 'severity' (they seem to have switched to that latter expression in recent releases) comparable across countries, that is, absolute values of the index meaningful. While I wouldn't discard that altogether, it probably is very much undermined by data reporting issues.
+
+In any case, as expected, movement and this index tend to move in opposite directions although the pattern isn't too clear cut.
+
+
+
+```{r policy movement, echo=FALSE}
+
+# Plot policy index versus mobility
+
+countries.plot <- c("United Kingdom", "France", "Germany", "Italy")
+
+dta.plot.movement.index <- dta %>% # Daily series of index and mobility by country
+  group_by(country, date_start) %>%
+  dplyr::summarise(index_high = mean(index_high_est, na.rm = TRUE),
+            index_median = mean(index_med_est, na.rm = TRUE),
+            index_low = mean(index_low_est, na.rm = TRUE),
+            continent = first(continent),
+            region = first(region)) %>%
+  arrange(country, date_start) %>%
+  filter(as.Date(date_start) < as.Date("2020-04-20")) %>%
+  left_join(read.csv("../df_covid_long.csv"), by = c("country" = "Country", "date_start" = "Date")) %>%
+  select(country, date_start, index_median, Movement, DateLockDown) %>%
+  filter(country %in% countries.plot) %>%
+  pivot_longer(-c(country,date_start,DateLockDown), names_to = "series", values_to = "value") %>%
+  arrange(country, series, date_start)
+  
+  
+
+
+ggplot(dta.plot.movement.index, aes(x = as.Date(date_start), y = value, colour = series)) +
+  geom_line(size = 1) +
+  geom_vline(data = ddply(dta.plot.movement.index, "country", summarize, lockdown = as.Date(first(DateLockDown), format = "%d/%m/%Y")), aes(xintercept=lockdown)) +
+  facet_grid(series~country, scales = "free") +
+  theme(legend.position = "none")
+
+
+```
 
 
 ## Next steps 
