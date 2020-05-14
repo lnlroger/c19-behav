@@ -99,7 +99,7 @@ dta <- mutate(dta, level_binary = ifelse(init_country_level %in% c("National", "
                                                 NA
                                                 )))
 
-ggplot(dta, mapping = aes(y = level_binary)) +
+ggplot(dta[is.lockdown,], mapping = aes(y = level_binary)) +
   geom_bar() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
