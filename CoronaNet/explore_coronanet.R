@@ -3,6 +3,8 @@ library("plyr")
 library("tidyverse")
 library("countrycode")
 
+#source: https://coronanet-project.org/index.html
+
 dta <- read.csv("coronanet_release.csv") %>%
   mutate(continent = countrycode(ISO_A3, "iso3c", "continent")) %>%
   mutate(region = countrycode(ISO_A3, "iso3c", "region"))
