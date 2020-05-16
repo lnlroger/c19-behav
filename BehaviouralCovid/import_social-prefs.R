@@ -1,12 +1,25 @@
 #q<-read.csv("C:/Users/fores/Desktop/COVID19_personal/COVID19-BehPerceptions/GlobalBehaviorsPerceptions_Dataset_May01_2020.csv")
 #saveRDS(q,"GlobalBehCovid.rds")
 
-#see here: https://www.nber.org/papers/w27082
+#see here: https://www.nber.org/papers/w27082 for paper
+#and here for data: (https://osf.io/3sn2k/)
+#I believe the data collection period was between 20/03 and 08/04. Or at least the one that they made available online and that I am currently working with.
+#They append data on government policy from Oxford:  https://www.bsg.ox.ac.uk/research/publications/variation-government-responses-covid-19 
+
+
+library(lubridate)
 
 GlobalBeh<-readRDS("BehaviouralCovid/GlobalBehCovid.rds")%>%
   rename(Country=CountryofLiving)%>%
-  mutate(Country=countrycode::countrycode(Country,"country.name","country.name"))
+  mutate(Country=countrycode::countrycode(Country,"country.name","country.name"))%>%
+  mutate(Date=lubridate::dmy(StartDate))%>%
+  mutate(week=lubridate::floor_date(Date,"week"))
+
   #mutate_at(vars(beh_stayhome:weight_sample),.funs=as.numeric)
+
+
+
+
 
 
 # g1<-GlobalBeh%>%

@@ -5,7 +5,7 @@ library("countrycode")
 
 #source: https://coronanet-project.org/index.html
 
-dta <- read.csv("coronanet_release.csv") %>%
+dta <- read.csv("CoronaNet/coronanet_release.csv") %>%
   mutate(continent = countrycode(ISO_A3, "iso3c", "continent")) %>%
   mutate(region = countrycode(ISO_A3, "iso3c", "region"))
 
@@ -109,7 +109,7 @@ index.daily <- dta %>% # Daily series of index by country
   group_by(country, date_start) %>%
   summarise(index_high = mean(index_high_est, na.rm = TRUE),
             index_median = mean(index_med_est, na.rm = TRUE),
-            index_low = mean(index_low_est), na.rm = TRUE,
+            index_low = mean(index_low_est, na.rm = TRUE),
             continent = first(continent),
             region = first(region)) %>%
   arrange(country, date_start) %>%
