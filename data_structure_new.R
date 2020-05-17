@@ -64,6 +64,9 @@ source("EM-DAT/import_epidemics.R")
 
 # Short version (pure cross-section)
 
+
+source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
+
 datasets.to.merge.short <- list(mobility_short,
                           DaysLock_short,
                           wvs,
@@ -76,7 +79,8 @@ datasets.to.merge.short <- list(mobility_short,
                           polityIV,
                           UNpop, 
                           hf,
-                          Gf_gov)
+                          Gf_gov
+                          )
 
 df_short <- Reduce(function(...) full_join(..., by='Country'), datasets.to.merge.short) %>%
   filter(!is.na(Country)) %>%
@@ -109,10 +113,11 @@ datasets.to.merge.long <- list(mobility_weather_death,
                                polityIV,
                                UNpop,
                                hf,
-                               Gf_gov)
+                               Gf_gov
+                               )
 
 
-df_long<- Reduce(function(...) full_join(..., by='Country'), datasets.to.merge.long) %>%
+df_long<- Reduce(function(...) full_join(..., by=c('Country')), datasets.to.merge.long) %>%
   filter(!is.na(Country)) %>%
   mutate(Death_pc = total_deaths/Population) %>%
   mutate(Confirmed_pc = total_cases/Population) %>%
@@ -121,6 +126,8 @@ df_long<- Reduce(function(...) full_join(..., by='Country'), datasets.to.merge.l
   mutate(Google_pc = DeathsBeforeGoogle/Population) %>%
   mutate(Log_Google_pc = ifelse(Google_pc>0,log(Google_pc),NA)) %>%
   mutate(DateLockDown = DateLockDown.y)
+
+df_long<-merge(df_long,Ox,by=c("Country","Date"),all=T)
 
 
 write.csv(df_long,"df_covid_long.csv")

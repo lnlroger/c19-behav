@@ -78,22 +78,11 @@ library(sjlabelled)
 library(naniar)
 library(ggpubr)
 library(countrycode)
+library(lubridate)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
 #https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
-
-#df corresponds to the short version of the data, where we keep only the last observed date by Google. 
-#dfl corresponds to the long version of the data, where we have day by day observations for Google and for the weather.
-#The weather starts recording from 22-01-2020 while Google from mid Feb. 
-#In the short version we take average temperatures and the last day of Google. 
-
-
-
-
-#breaks<-df%>%
- # filter(Popular==1)%>%
-  #dplyr::select(Country)
 
 
 
@@ -177,12 +166,13 @@ Currently, according to Figure \@ref(fig:ActIndex), this oscilation happens very
 According to this hypothesis, we should expect this trend to flatten and the oscilation to intensify. 
 
 ```{r ActIndex, echo=FALSE, fig.cap="Activity Index by Country"}
-source("CoronaNet/explore_coronanet.R") 
+source("CoronaNet/explore_coronanet_small.R") 
 
 ggplot(index.daily.continent, mapping = aes(x = as.Date(date_start), y = index_median, colour = continent)) +
   geom_smooth(span = 0.2, se=FALSE) +
   geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  theme_bw()
 
 
 ```
@@ -194,25 +184,25 @@ Behavioural fatigue (assumption 2) can be the key contributor for reduced adhere
 
 For the behavioural fatigue assumption we can measure public's attitudes at different times: early on after the first SI measures, later on, right after the second wave of SI (has not yet come). [This ongoing survey](https://www.nber.org/papers/w27082){target="_blank"} might be a good source for tracking this. 
 
-```{r, fob, fig.cap="Cancel social gatherings?"}
+```{r, fobG, fig.cap="Cancel social gatherings?"}
 source("BehaviouralCovid/fob.R")
 g
 
 ```
 
-```{r, fob, fig.cap="Shake hands?"}
+```{r, fobH, fig.cap="Shake hands?"}
 
 h
 
 ```
 
-```{r, fob, fig.cap="Close stores?"}
+```{r, fobST, fig.cap="Close stores?"}
 
 st
 ```
 
 
-```{r, fob, fig.cap="Curfew"}
+```{r, fobCRF, fig.cap="Curfew"}
 
 crf
 

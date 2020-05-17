@@ -1,0 +1,199 @@
+---
+title: "Oxford Policy Tracker exploration"
+author: "Orestis, Lio"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+
+
+#library(knitcitations); cleanbib() cite_options(citation_format = "pandoc", check.entries=FALSE)
+library(bibtex)
+
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(lmerTest)
+library(stargazer)
+library(ggplot2)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(ggpubr)
+library(countrycode)
+library(lubridate)
+library(here)
+library(Hmisc)
+
+
+options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
+
+#https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+
+df<-read.csv(here("df_covid_long.csv"))%>%
+  filter(!is.na(StringencyIndex))
+
+
+OxVars<-c('C1_School.closing', 'C1_Flag', 'C2_Workplace.closing','C2_Flag','C3_Cancel.public.events','C3_Flag','C4_Restrictions.on.gatherings','C4_Flag','C5_Close.public.transport','C6_Stay.at.home.requirements','C6_Flag','C7_Restrictions.on.internal.movement','C7_Flag,C8_International.travel.controls','H1_Public.information.campaigns','H1_Flag')
+
+GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'workplaces_percent_change_from_baseline','residential_percent_change_from_baseline','Movement')
+
+```
+
+
+
+# Data source
+
+The data tracks down all announcements on a day-to-day basis and constructs an index capturing stringency. 
+See [here](https://www.nber.org/papers/w27082){target="_blank"} for paper and [here](https://osf.io/3sn2k/){target="_blank"} for data. 
+
+The data set does not specify which sub-region within a country implemented each measure - but does record if a policy was regional. 
+Does CoronaNet give regional info? 
+That would be an advantage for a more nuanced analysis. 
+
+Regarding the construction of the index:
+
+For each policy response measure they create a score by taking the ordinal value and adding a weighted constant if the policy is general rather than targeted, if applicable. 
+The resonse measures that are taken into account for the index involve the following categories:
+
+* C1: School closing, 
+* C2: workplace closing, 
+* C3: canceling public events, 
+* C4: restrictions on gathering size, 
+* C5: close public transport, 
+* C6: stay at home requirements,
+* C7: restrictions on internal movment
+* C8: restrictions on international level 
+* H1: purblic information campaign
+
+Every category gets two scores. 
+
+* Ordinal: measured on a scale of severity/ intensity ranging from 1 to 3 I think. For example C1_School.closing={1,2,3} 
+* Geographical: 0 for local and 1 for across entire country. I think the variable for this is C1_Flag. C8 does not have a flag (assuming it's general).
+
+They then rescale each of these by their maximum value to create a score between 0 and 100, with a missing value contributing 0.3. 
+These nine scores are then averaged to get the composite Stringency Index. 
+
+According to the authors: 
+
+>Importantly, the Stringency Index should not be interpreted as a measure of the
+appropriateness or effectiveness of a government's response. It does not provide
+information on how well policies are enforced, nor does it capture demographic or
+cultural characteristics that may affect the spread of COVID-19. Its value is instead to
+allow for efficient cross-national comparisons of government interventions.
+>> `r tufte::quote_footer('Hale, Thomas, Noam Angrist, Beatriz Kira, Anna Petherick, Toby
+Phillips, Samuel Webster. "Variation in Government Responses to COVID-19"')`
+
+
+Good, so we get to evaluate these policies ourselves. 
+
+
+
+
+# Stringency and movement
+
+
+```{r  }
+print("Summary of Stringency index")
+describe(df$StringencyIndex)
+```
+
+## Without time
+
+
+
+```{r StrMov, fig.cap="Stringency and Movement across regions"}
+
+Ox<-readRDS(here("OxfordTracking/covid-policy-tracker-master/data/Oxf.rds"))%>%
+  rename(Country=CountryName)%>%
+  mutate(Country=countrycode::countrycode(Country,"country.name","country.name"))%>%
+  mutate(Date=lubridate::ymd(Date))%>%
+  mutate(week=lubridate::floor_date(Date,"week"))
+
+
+df%>%
+  #filter(Country=="Greece"|Country=="Germany")%>%
+  filter(!is.na(COL))%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  
+   mutate(Country = forcats::fct_reorder(Country,as.numeric(Continent))) %>%
+  group_by(Continent,Country)%>%
+  #ggplot(aes(x=as.Date(Date),y=Movement,colour=Country,linetype=InLock))+
+  ggplot(aes(x=StringencyIndex,y=Movement,col=Continent))+
+  geom_point(col="black") +
+  geom_smooth()+
+  facet_wrap(~Country)+
+  scale_colour_brewer(palette = 'Set1')+
+  theme_bw()
+
+```
+
+
+# With time
+
+This types of Figures look promising for our analysis. 
+The way the Oxford index is coded and the measurment units of Google allow us to plot 3 dimensions in a single figure. 
+
+```{r indmov, fig.cap="Development of Stringency Index over time while tracking Movement reduction(?) as a response."}
+
+dfl<-reshape(df, 
+                      varying = list(c(GoogleVars,'StringencyIndex')),
+                                      
+                      v.names = 'Value', 
+                      timevar='Type',
+                      times=c(GoogleVars,'StringencyIndex'),
+                      
+                      direction = "long")%>%
+ # dplyr::select(Country,Continent,Date,Value,Type)%>%
+  mutate(Date=ymd(Date))
+
+
+dfl%>%
+  filter(!is.na(COL))%>%
+  filter(Type=="Movement"|Type=="StringencyIndex")%>%
+  group_by(Country)%>%
+  ggplot(aes(x=Date,y=Value,col=Type))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~Country)+
+  theme_bw()
+  
+  
+  
+
+```
+
+
+

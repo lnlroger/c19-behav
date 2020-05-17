@@ -42,7 +42,8 @@ options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
 df<-read.csv("04052020_short.csv")
 
-
+df2<-read.csv("df_covid_long.csv")%>%
+  filter(!is.na(StringencyIndex))
 
 
 

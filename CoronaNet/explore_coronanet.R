@@ -1,14 +1,10 @@
-rm(list = ls())
-library("plyr")
-library("tidyverse")
-library("countrycode")
+
 
 #source: https://coronanet-project.org/index.html
 
 dta <- read.csv("CoronaNet/coronanet_release.csv") %>%
   mutate(continent = countrycode(ISO_A3, "iso3c", "continent")) %>%
   mutate(region = countrycode(ISO_A3, "iso3c", "region"))
-
 
 # Dataset contains 14k events, distribution is as follows:
 
@@ -104,6 +100,8 @@ ggplot(dta[is.lockdown,], mapping = aes(y = level_binary)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 # Index ----
+
+
 
 index.daily <- dta %>% # Daily series of index by country
   group_by(country, date_start) %>%
