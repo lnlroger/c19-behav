@@ -69,6 +69,27 @@ OxVars<-c('C1_School.closing', 'C1_Flag', 'C2_Workplace.closing','C2_Flag','C3_C
 
 GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'workplaces_percent_change_from_baseline','residential_percent_change_from_baseline','Movement')
 
+
+dfl<-reshape(df, 
+                      varying = list(c(GoogleVars,'StringencyIndex')),
+                                      
+                      v.names = 'Value', 
+                      timevar='Type',
+                      times=c(GoogleVars,'StringencyIndex'),
+                      
+                      direction = "long")%>%
+ # dplyr::select(Country,Continent,Date,Value,Type)%>%
+  mutate(Date=ymd(Date))
+
+
+
+
+k<-df%>%
+  dplyr::select(Country, Date, StringencyIndex)
+
+dfl<-merge(dfl,k,by=c("Country","Date"),all=T)
+  
+
 ```
 
 
@@ -131,6 +152,8 @@ describe(df$StringencyIndex)
 
 ## Without time
 
+I focus here one the countries for which information about Collectivism. 
+No special reason, just one way to reduce the amount of countries we are looking at and make the figure more elligible. 
 
 
 ```{r StrMov, fig.cap="Stringency and Movement across regions"}
@@ -143,7 +166,7 @@ Ox<-readRDS(here("OxfordTracking/covid-policy-tracker-master/data/Oxf.rds"))%>%
 
 
 df%>%
-  #filter(Country=="Greece"|Country=="Germany")%>%
+  #filter(Country=="South Korea")%>%
   filter(!is.na(COL))%>%
   mutate(CaseLog=scale(log(TotalCases)))%>%
   mutate(DeathLog=scale(log(TotalDeaths)))%>%
@@ -160,6 +183,65 @@ df%>%
 
 ```
 
+There are a few things we can say by looking at Figure \@ref(fig:StrMov). 
+
+1. The run over the x-axis reveals how strictly each country took the threat. 
+2. The slope might reflect some sort of adherence. 
+
+Let's focus on the slope a bit more. 
+
+```{r coef, fig.cap="Coefficients of regressing Movement on Policy Stringency"}
+df%>%
+  #na.omit() %>%
+  filter(!is.na(COL),!is.na(Movement),!is.na(StringencyIndex))%>%
+  #filter(Country=="Germany")%>%
+  group_by(Country)%>%
+  #summarise(Mean=mean(points))
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            n=n())%>%
+  mutate(Country = forcats::fct_reorder(Country, coef)) %>%
+
+  ggplot(aes(x=Country, y=coef)) + 
+  geom_point(aes(size=se),colour="blue",alpha=0.25)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  #facet_wrap(~prRange)
+
+```
+
+
+Can we interprate the coefficients of Figure \@ref(fig:coef) as a proxy for adherence? 
+It is tempting to do so. Countries with more negative coeficients - like Italy - responded very steeply to their Govt's recommendations. 
+On the other hand, there is no lag between the day that the policy index was announced and the day that the movement restriction was measured. 
+But of course, this begs the question: 'what is the appropriate time lag?' 
+Also, what is going on with S. Korea? 
+Can we really conclude that Koreans ignore their govt's directives? 
+I think it is more likely that we are observing a sophistication in measurement implementation. 
+Policies are becoming more targeted and people learn how to implement while still being able to maintain mobility. 
+Focusing on S. Korea again but this time, disaggregating Movement restriction:
+
+
+```{r SK, fig.cap="South Korea across different aspects of Movement."}
+
+
+dfl%>% 
+  filter(Country=="South Korea",Type!="StringencyIndex")%>%
+  ggplot(aes(x=StringencyIndex,y=Value))+
+  geom_point(col="black") +
+  geom_smooth()+
+  facet_wrap(~Type)+
+  scale_colour_brewer(palette = 'Set1')+
+  labs(y="Movement change")+
+  theme_bw()
+
+
+
+```
+
+Nope, according to Figure \@ref(fig:SK), South Korea is still a mystery...
+Maybe a measurement error from Oxford or Google? 
+I wonder how does CoronaNet's index look like for the same analysis...
 
 # With time
 
@@ -168,16 +250,7 @@ The way the Oxford index is coded and the measurment units of Google allow us to
 
 ```{r indmov, fig.cap="Development of Stringency Index over time while tracking Movement reduction(?) as a response."}
 
-dfl<-reshape(df, 
-                      varying = list(c(GoogleVars,'StringencyIndex')),
-                                      
-                      v.names = 'Value', 
-                      timevar='Type',
-                      times=c(GoogleVars,'StringencyIndex'),
-                      
-                      direction = "long")%>%
- # dplyr::select(Country,Continent,Date,Value,Type)%>%
-  mutate(Date=ymd(Date))
+
 
 
 dfl%>%
@@ -188,12 +261,23 @@ dfl%>%
   geom_point()+
   geom_smooth()+
   facet_wrap(~Country)+
-  theme_bw()
+  theme_bw()+
+    theme(legend.position="bottom")
   
   
   
 
 ```
+
+We can tell interesting stories given the spread of the bifurcation, the relative difference from the 0 line, etc.
+However, still, we have not decided on the lag. 
+This figure makes it clear that things are complicated when considring a continuous stringency index. 
+How do we interpret changes in movement on periods that there was no policy update? 
+There can be certain updates of the policy index that are ignored and others that are overly emphasized. 
+Countries that made the influential policy change early on might had seen a sudden movement adjustment which we might crowd out by equating (and averaging) with a plethora of other updates of the policy index that were ignored (as people were already at the desirable level of movement). 
+
+
+
 
 
 
