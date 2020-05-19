@@ -64,13 +64,15 @@ options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 df<-read.csv(here("df_covid_long.csv"))%>%
   filter(!is.na(StringencyIndex))
 
+df$ID<-1:nrow(df)
+
 
 OxVars<-c('C1_School.closing', 'C1_Flag', 'C2_Workplace.closing','C2_Flag','C3_Cancel.public.events','C3_Flag','C4_Restrictions.on.gatherings','C4_Flag','C5_Close.public.transport','C6_Stay.at.home.requirements','C6_Flag','C7_Restrictions.on.internal.movement','C7_Flag,C8_International.travel.controls','H1_Public.information.campaigns','H1_Flag')
 
 GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'workplaces_percent_change_from_baseline','residential_percent_change_from_baseline','Movement')
 
 
-dfl<-reshape(df, 
+dfl<-reshape(df, idvar="ID",
                       varying = list(c(GoogleVars,'StringencyIndex')),
                                       
                       v.names = 'Value', 
@@ -85,9 +87,19 @@ dfl<-reshape(df,
 
 
 k<-df%>%
-  dplyr::select(Country, Date, StringencyIndex)
+  dplyr::select(ID, StringencyIndex)
 
-dfl<-merge(dfl,k,by=c("Country","Date"),all=T)
+dfl<-merge(dfl,k,by="ID")%>%
+  arrange(Country,Date,Type)%>%
+  mutate(Value_lag_1d=dplyr::lag(Value,1))
+
+#dfl is a long version of df (which is also a long version of df_short). 
+#Under the column "Value" I have expanded values for sub-categories of movement (groceries, restaurants, etc.). 
+#Under the column 'Type' you can see what each value corresponds to. I have also included the stringency index.
+#Google gives us 7 sub-categories + 1 for the stringency index=8. So for a single date, dfl has 8 observations instead of one and this is why dfl is 8-fold df.
+#I have also created a lagged variable: Value_lag_1d which tracks Value with one day's lag. 
+#Grouping by country and date should turn dfl to df (and make the columns Value and Type incomprehinsible unless summarised appropriately).
+
   
 
 ```
@@ -278,6 +290,21 @@ Countries that made the influential policy change early on might had seen a sudd
 
 
 
+# Taking lags and differences
 
 
+use dplyr lag on Movement. 
+
+```{r}
+z<-dfl%>%
+  filter(!is.na(StringencyIndex))%>%
+  filter(Type=="Movement")%>%
+  group_by(ID,Country,Date,StringencyIndex)%>%
+  summarise(Move=mean(Value_lag_1d,na.rm=T),first_lag=first(Value_lag_1d),first=first(Value),StrinInd=first(StringencyIndex),StringIndMean=mean(StringencyIndex))
+  
+  
+  
+
+
+```
 
