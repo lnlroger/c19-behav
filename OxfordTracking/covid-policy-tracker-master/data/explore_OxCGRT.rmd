@@ -32,7 +32,7 @@ library(bibtex)
 library(tidyr)
 library(dplyr)
 library(stringr)
-library(lmerTest)
+#library(lmerTest)
 library(stargazer)
 library(ggplot2)
 library(mfx)
@@ -55,14 +55,18 @@ library(countrycode)
 library(lubridate)
 library(here)
 library(Hmisc)
+library(ggpubr)
+library(DT)
 
 
-options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
+options("jtools-digits" = 4,scipen=99) # set displayed decimal places to 4
 
 #https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
 df<-read.csv(here("df_covid_long.csv"))%>%
-  filter(!is.na(StringencyIndex))
+  filter(!is.na(StringencyIndex))%>%
+  mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
+  mutate(Movement_lead_1d=dplyr::lead(Movement,1))
 
 df$ID<-1:nrow(df)
 
@@ -292,19 +296,219 @@ Countries that made the influential policy change early on might had seen a sudd
 
 # Taking lags and differences
 
-
-use dplyr lag on Movement. 
+If the variable that lags Movement response by one day is doing what we think it ought to be doing, we should expect that the correlation with the policy index to be more negative than when compared to the non-lagged Movement variable. 
+That is, we would expect that the policy has an effect the day after its announcement. 
+Of course, we know that this is not absolute. 
+Often announcements come as a sulmination of things that are already 'in the air'. 
 
 ```{r}
-z<-dfl%>%
-  filter(!is.na(StringencyIndex))%>%
-  filter(Type=="Movement")%>%
-  group_by(ID,Country,Date,StringencyIndex)%>%
-  summarise(Move=mean(Value_lag_1d,na.rm=T),first_lag=first(Value_lag_1d),first=first(Value),StrinInd=first(StringencyIndex),StringIndMean=mean(StringencyIndex))
+
+#if(!require(devtools)) install.packages("devtools")
+#devtools::install_github("kassambara/ggpubr")
+
+
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Non-lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
   
-  
-  
+         
+ 
+
 
 
 ```
+
+Impressive correlation. Is it the same across continent?
+
+
+```{r include=FALSE}
+
+
+
+
+df%>%  
+  ggscatter(x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+            add = "reg.line",
+              color = "Continent", palette="jco", alpha=0.3, shape="Continent",
+              #shape = 1,
+              #label = "Vintage",
+              
+               conf.int = TRUE,
+              
+              title="Movement and Strigency Index - Non-lagged")+
+  stat_cor(aes(color = Continent), label.x = 3,digits=4,p.accuracy=0.001) 
+  
+         
+  
+
+
+
+
+```
+
+There is some interesting variation.
+
+
+What about the lagged version?
+
+
+```{r}
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement_lag_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+             
+              add = "reg.line",
+              title="Movement and Strigency Index - Lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+         
+  
+
+```
+
+Not as good in fact. Perhaps it is because of the way Google registers the observation period?
+I will check with a variable that lags the policy index instead. 
+So that the response in movement precedes it. 
+
+```{r}
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement_lead_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+Hmmmm.... so Movement correlates better with the lagged version of the index. 
+This is really shouldn't happen. 
+Let's consider first differences.
+
+```{r}
+
+df<-df%>%
+  mutate(DifMove=Movement-Movement_lag_1d)%>%
+  mutate(DifMoveLag=dplyr::lag(DifMove,1))%>%
+  mutate(DifPol=StringencyIndex-dplyr::lag(StringencyIndex,1))
+
+
+cor.test(df$DifMove,df$DifPol)
+
+
+df%>%  
+  ggscatterhist(x="DifMove", y="DifPol",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index first differences - Non-lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+
+```
+
+
+```{r}
+
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+
+df%>%  
+  ggscatterhist(x="DifMoveLag", y="DifPol",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index first differences - Lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+
+```
+
+
+Nothing too promising, especially in the lagged case. 
+
+
+```{r StCtrMove, fig.cap= "Measuring Movement-responsiveness of countries to policy index."}
+df%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            t_stat=coef/se)%>%
+  ungroup()%>%
+  mutate(Rank=dense_rank(desc(-coef)))%>%
+    datatable()%>%
+  formatRound(columns=c('coef','se','t_stat'),digits=4)
+            
+  
+
+
+
+
+
+```
+
+More negative coefficients imply that an increase in stringency reduces Movement. 
+Countries like Italy, Spain and France are in the top-10. 
+Countries like Sweden, Denmark and Norway are in the bottom-10. 
+So it looks promising. 
+South Korea is also in the bottom 10, with a coef. that is not sign. different than 0. 
+Weird...
 
