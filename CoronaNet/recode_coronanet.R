@@ -11,6 +11,7 @@
 
 rm(list = ls())
 library("vars")
+library("plyr")
 library("tidyverse")
 library("pracma")
 library("countrycode")
@@ -70,7 +71,7 @@ rm(mandatory.national.lockdowns,voluntary.national.lockdowns,mandatory.national.
 
 # Plot those events against mobility (or whatever is of interest) ---
 
-countries.plot <- c("United Kingdom", "France", "Italy")
+countries.plot <- c("Turkey", "Russia", "Germany", "Greece")
 
 # Prepare data as daily series of index and mobility by country, 
 # as well as relevant lockdown/curfew dates.
@@ -103,7 +104,12 @@ dta.daily <-
     voluntary.national.lockdown,
     mandatory.national.curfew
   )
-  
+
+# write.csv(
+#   dta.daily,
+#   "CononaNetDaily.csv"
+#           )
+
 dta.plot.movement.index <-
   dta.daily %>%
   filter(country %in% countries.plot) %>%
@@ -120,6 +126,7 @@ dta.plot.movement.index <-
     values_to = "value"
   ) %>%
   arrange(country, series, date_start)
+
 
 # Plot
 ggplot(dta.plot.movement.index,

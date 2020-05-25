@@ -1,0 +1,306 @@
+---
+title: "Some exploration of Oxford Policy Response Database"
+author: "Lio"
+date: "21/05/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+source("LR_import-data.R")
+
+library("ggpubr")
+library("dLagM")
+```
+
+## Comparison with CoronaNet
+
+Simply plotting all observations from CoronaNet (CN) and the Oxford Database (Ox) reveals that, as expected, both are quite correlated (0.7), but the relationship is far from being perfect. 
+
+
+```{r scatter, echo=FALSE}
+# Scatter
+ggplot(
+  na.omit(df.use[,c("Date","IndexCoronaNet","StringencyIndex")]), 
+  aes(x = IndexCoronaNet, 
+      y = StringencyIndex)
+  ) +
+  geom_point(size = 0.1) +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+  
+
+```
+
+
+Illustrating this for a couple of (partly random) countries further shows where these differences stem from. A couple of things:
+
+* CN starts at random periods, and often with odd values (suggesting quite strict policies at points in time where most likely no measures had been taken)
+* CN doesn't exhibit a line for US here, because it is federal and they report by state. Ox do the aggregation for us, whether this is to our satisfaction will have to be seen.
+* Easing of lockdowns seems to be hardly reflected in CN data, whereas Ox seems quite responsive.
+
+```{r lines compare, echo=FALSE}
+# Time Series Comparison
+countries.to.plot <- c(unique(df.use$Country)[seq(1,163,35)],
+                       "United States",
+                       "Germany",
+                       "South Korea") # Random bunch of countries
+
+df.plot.ts.compare <-
+  df.use %>%
+  filter(Country %in% countries.to.plot) %>%
+  dplyr::select(Country,Date,StringencyIndex,IndexCoronaNet) %>%
+  pivot_longer(
+    -c(
+      Country,
+      Date
+    ),
+    names_to = "series",
+    values_to = "value"
+  ) %>%
+  arrange(Country, series, Date) %>%
+  na.omit()
+
+ggplot(df.plot.ts.compare, aes(x = Date, y = value, colour = series)) +
+  geom_line() +
+  facet_grid(cols = vars(Country), rows = vars(series),
+             scales = "free_y") +
+  theme_bw() +
+  theme(legend.position = 'none',
+        axis.text.x=element_blank(),
+        axis.ticks.x = element_blank()) 
+
+rm(df.plot.ts.compare)
+
+```
+
+Overall, it feels safe to assume that Ox is the better dataset to work with.
+
+
+## Plotting duration of individual measures
+
+Ox comes with the neat 'flag' variables, which are 1 if any given measure is in place and 0 otherwise (there is also the version that ranges 0-3 and says something about intensity).
+
+The graph below is an attempt at depicting that information in a single graph, admittedly implemented in a slightly overcomplicated way (somewhat cheating ggplot)). The information content is quite high I find, I just wish I'd gone for a simpler approach (e.g. seperate graphs for index and measures, line chart on top and bar chart / gantt chart below for each country). Also, that's why the legend is improvised.
+
+```{r measures, echo=FALSE}
+# 'Gantt chart', illustrating measures underlying Oxford Stringency Index
+df.plot.ts.gantt <-
+  df.use %>%
+  filter(Country %in% countries.to.plot) %>%
+  dplyr::select(Country, Date, StringencyIndex,
+                C1_Flag, 
+                C2_Flag,
+                C3_Flag,
+                C4_Flag,
+                C5_Flag,
+                C6_Flag,
+                C7_Flag,) %>%
+  replace_na(list(C1_Flag = 0, 
+                  C2_Flag = 0,
+                  C3_Flag = 0, 
+                  C4_Flag = 0,
+                  C5_Flag = 0, 
+                  C6_Flag = 0,
+                  C7_Flag = 0))
+
+ggplot(df.plot.ts.gantt, aes(x = Date, y = StringencyIndex)) +
+  scale_alpha_continuous(range = c(0, 0.3)) +
+  geom_segment(aes(y = 0, yend = 10,
+      x = Date, xend = Date,
+      alpha = as.numeric(C1_Flag)),
+    inherit.aes = F,
+    colour = "red", size = 2) +
+  geom_segment(aes(y = 10, yend = 20,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C2_Flag)),
+               inherit.aes = F,
+               colour = "orange", size = 2) +
+  geom_segment(aes(y = 20, yend = 30,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C3_Flag)),
+               inherit.aes = F,
+               colour = "yellow", size = 2) +
+  geom_segment(aes(y = 30, yend = 40,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C4_Flag)),
+               inherit.aes = F,
+               colour = "greenyellow", size = 2) +
+  geom_segment(aes(y = 40, yend = 50,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C5_Flag)),
+               inherit.aes = F,
+               colour = "green", size = 2) +
+  geom_segment(aes(y = 50, yend = 60,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C6_Flag)),
+               inherit.aes = F,
+               colour = "turquoise", size = 2) +
+  geom_segment(aes(y = 60, yend = 70,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C7_Flag)),
+               inherit.aes = F,
+               colour = "blue", size = 2, show.legend = TRUE) +
+  geom_line() +
+  ylim(0, 100) +
+  facet_wrap(~Country, ncol = 4) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+![legend](legend_improvised.PNG)
+
+One take away is that, even in Ox, the US remains an odd case.
+
+## Estimating compliance using ARDL model
+
+What follows is based on ARDL estimates, which is nothing but OLS where x (here: Movement) is explained with lags of x itself, as well as present values and lagged values of y (here: Stringency). Based on the obtained coefficients, it is easy to compute the 'long run effect' of y on x, taking into account the feedback mechanisms that take place.
+
+This should be a better way of quantifying 'compliance', as we don't have to make strong assumptions about which lag to use etc., and should some lag be more relevant than in others, this will not cause any issues.
+
+Note that I am looking at differenced variables, as otherwise non-stationarity / spurious regression would certainly be an issue.
+
+For example, the results for Zimbabwe read (*output seems to come out twice, don't know why):
+
+```{r ardl, echo=FALSE}
+# ARDL ----
+df.ARDL <- df.use %>%
+  group_by(Country) %>%
+  mutate(diff.Movement = c(NA, diff(Movement)),
+         diff.StringencyIndex = c(NA, diff(StringencyIndex))) %>%
+  dplyr::select(Country, Date, diff.Movement, diff.StringencyIndex) %>%
+  drop_na()
+
+lr.coeffs <- data.frame(Country = unique(df.ARDL$Country),
+                        LongRunCoeff = NA)
+# Prepare data
+for (ctry in unique(df.ARDL$Country)) {
+
+df.now <- df.ARDL %>%
+  filter(Country == ctry)
+
+# Run estimation
+p.ardl <- 3 # Lags of independent variable
+q.ardl <- 3 # Autoregressive lags
+model.ardl <- ardlDlm(formula = diff.Movement ~ diff.StringencyIndex, 
+                      data = df.now,
+                      p = p.ardl , q = q.ardl)
+# Long run parameter
+lr.coefficient.ardl <- sum(model.ardl$model$coefficients[2:5]) /
+  (1-sum(model.ardl$model$coefficients[6:8]))
+
+lr.coeffs$LongRunCoeff[which(lr.coeffs$Country == ctry)] <- lr.coefficient.ardl
+}
+
+summary(model.ardl)
+
+#rm(df.now, df.ARDL, model.ardl, ctry, lr.coefficient.ardl,p.ardl,q.ardl)
+```
+From these coefficients, the long-run effect can be derived using the formula sum([coefficients of y])/(1-sum(coefficients of x)). For Zim, this is -1.052: A 1 unit increase in stringency will lead to a 1.052% decrease in Movement, in the long run.
+
+The graphs below show coefficients for all countries, as well as by continent and geographical region. Low numbers mean high compliance.
+
+```{r coeff graphs, echo=FALSE,  fig.height = 10}
+
+# See if there's something going on with the coefficients
+lr.coeffs.covariates <- lr.coeffs %>%
+  left_join(df.use) %>%
+  dplyr::select(Country, LongRunCoeff, polity2, risktaking, 
+                patience, ROL, GDP.capita, CaseLog,
+                Continent, Region) %>%
+  fill(polity2, risktaking, patience, ROL, GDP.capita, CaseLog, 
+       Continent, Region, .direction = "updown") %>%
+  distinct(Country, LongRunCoeff, polity2, risktaking, patience, ROL, GDP.capita, CaseLog,
+           Continent, Region) %>%
+  group_by(Country) %>%
+  filter(row_number()==n())
+
+df.coeffs.reorder <- lr.coeffs.covariates %>%
+  ungroup() %>%
+  mutate(Country = forcats::fct_reorder(Country, LongRunCoeff))
+
+ggplot(arrange(df.coeffs.reorder,LongRunCoeff),aes(y=Country, x=LongRunCoeff)) +
+  geom_point(colour="blue",alpha=0.25)+
+  theme_bw()+
+  theme(#axis.text.x = element_text(angle = 90, hjust = 1),
+        text = element_text(size=7))
+
+```
+
+```{r coeffs by, echo=FALSE}
+
+coeffs.by.continent <- lr.coeffs.covariates %>%
+  group_by(Continent) %>%
+  summarise(LongRunCoeff = mean(LongRunCoeff, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(Continent = forcats::fct_reorder(Continent, LongRunCoeff))
+
+ggplot(arrange(coeffs.by.continent,LongRunCoeff),aes(y=Continent, x=LongRunCoeff)) + 
+  geom_point(colour="blue")+
+  theme_bw()+
+  theme(#axis.text.x = element_text(angle = 90, hjust = 1),
+    text = element_text(size=10))
+
+coeffs.by.region <- lr.coeffs.covariates %>%
+  group_by(Region) %>%
+  summarise(LongRunCoeff = mean(LongRunCoeff, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(Region = forcats::fct_reorder(Region, LongRunCoeff))
+
+ggplot(arrange(coeffs.by.region,LongRunCoeff),aes(y=Region, x=LongRunCoeff)) + 
+  geom_point(colour="blue")+
+  theme_bw()+
+  theme(#axis.text.x = element_text(angle = 90, hjust = 1),
+    text = element_text(size=10))
+
+```
+
+Asia being the 'least' compliant is probably counterintuitive, but would be in line with targeted measures (*Korea remains a puzzle). Note also that China is not part of the sample as there's no Movement data.
+
+## Potential determinants / covariates of compliance
+
+Below, as usual a couple of scatterplots plotting this measure of compliance against a number of other factors (see axis labels). 
+
+Spoiler: Nothing going on.
+
+```{r covariates, echo=FALSE}
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,polity2)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,risktaking)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,patience)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,ROL)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+
+
+
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,GDP.capita)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+ggplot(lr.coeffs.covariates, aes(LongRunCoeff,CaseLog)) +
+  geom_point() +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
