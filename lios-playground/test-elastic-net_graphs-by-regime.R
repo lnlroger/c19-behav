@@ -23,8 +23,8 @@ library(glmnet)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
-df<-read.csv(here::here("02052020_short.csv"))
-dfl<-read.csv(here::here("02052020_long.csv"))
+df<-read.csv(here::here("df_covid_short.csv"))
+dfl<-read.csv(here::here("df_covid_long.csv"))
 
 # Elastic net ----
 
