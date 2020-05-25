@@ -1,0 +1,207 @@
+---
+title: "Covid-19: Scoping the field"
+author: "Orestis, Lio"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+
+---
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+
+
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(lmerTest)
+library(stargazer)
+library(ggplot2)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(ggpubr)
+
+options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
+
+#df<-read.csv("04052020_short.csv")
+
+dfl<-read.csv("df_covid_long.csv")%>%
+  filter(!is.na(StringencyIndex))
+
+df<-read.csv("df_covid_short.csv")
+
+
+
+#https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+
+#df corresponds to the short version of the data, where we keep only the last observed date by Google. 
+#dfl corresponds to the long version of the data, where we have day by day observations for Google and for the weather.
+#The weather starts recording from 22-01-2020 while Google from mid Feb. 
+#In the short version we take average temperatures and the last day of Google. 
+
+
+
+
+#breaks<-df%>%
+ # filter(Popular==1)%>%
+  #dplyr::select(Country)
+
+
+
+
+
+```
+
+# Data description
+I compiled the data set by collecting country-level variables from a host of sources. 
+
+* google mobility reports: displays the change in visits to places like grocery stores and parks as of 29/03/2020 (the report was released on the 2nd of April I think but it covers up to 3 days before). 
+  * The beginning of the observation period (compared to the benchmark) is Feb. 23. This seems to be consistent across all countries.
+  * The baseline is the median value, for the corresponding day of the week, during the 5- week period Jan 3–Feb 6, 2020.
+  * There is a new update on the 9th of April. They will keep on updating. 
+* official lock-down dates for each country (various sources).
+* dates of first death and 1st reported case. I have also the dates for each additional death and case-confired. 
+* world bank measures for GDP per capita, unemployment and other health related indexes. 
+* Rule of Law from 2018 (this is a measure that was also included in the antisocial punishment paper by Gachter et al.)
+* Number of tests and deaths - though this is sth that needs to be updated ever so often
+
+* from World Value Scales: values such as the importance of democracy and respect for ind. human rights nowadays
+* average temperature and humididty for the period between 22nd of January to March 24 (thanks to World Weather Online AP)
+* demographics such as median age, population, population density, urban density
+* behavioural variables such as the Rule of Law (from World Bank), risk taking propensity, altruism, patience, etc. (from the global preferences survey). 
+
+
+Some important dates to consider:
+
+* 11/03/2020 : The World Health Organisation declares COVID-19 a pandemic. 
+* 21-22/01/2020: First official reports conceding there are human-to-human transmissions.
+* 23/02/2020: Start of observation period for mobility restrictions.
+* 29/03/2020: end of observation period for 1st Google report. 
+* 05/04/2020: end of observation period for 2nd Google report. 
+* 22/01/2020 - 24/03/2020: period of weather observation
+
+The idea was to explore the ability of measures such as such the rule of law, importance of democracy and respect of individual rights to correlate with a) policy decisions such as when to apply restriction measures and how severe those are and b) with individual compliance: how much was mobility restricted. 
+
+Disclaimer: this is not an attempt to identify causal relations. This is just a report to satisfy curiocities that were raised over coffee-breaks. If we are to make a more serious scientific claims to motivate this, I guess we can claim the following two-fold contribution:
+1. Assessing the usefulness of social-value indexes such as the ROL, etc. 
+2. Present a case for future studies, with more ambitious identification strategies, that aim to infer causality. 
+
+
+
+
+
+# Movement analysis
+
+This is how the normal relation between Movement restriction and log Total Deaths looks like. 
+
+
+```{r }
+
+
+w<-df%>%
+  filter(TotalDeaths>1)%>%
+  filter(!is.na(Movement))%>%
+  #filter(!is.na(COL))%>%
+  mutate(LogTotalDeaths_pc=log(TotalDeaths/Population))%>%
+   mutate(zLogTotalDeaths_pc=scale(LogTotalDeaths_pc))%>%
+    mutate(rank100Death_pc=round(percent_rank(LogTotalDeaths_pc),2))
+
+  
+  
+  
+  ggscatterhist(w,x="LogTotalDeaths_pc", y="Movement",
+              #size = "Population.density",
+             color = "blue",
+              alpha=0.3,
+              #add="jitter",
+              #shape = 1,
+              #label = "Country",
+              #repel = T,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Total Deaths",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+
+
+
+```
+
+
+Here is when I use z-scores
+
+```{r}
+ ggscatterhist(w,x="zLogTotalDeaths_pc", y="Movement",
+              #size = "Population.density",
+             color = "blue",
+              alpha=0.3,
+              #add="jitter",
+              #shape = 1,
+              #label = "Country",
+              #repel = T,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Total Deaths",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+
+```
+
+Here is when I use percentiles:
+
+
+```{r}
+
+w%>%
+  group_by(rank100Death_pc)%>%
+  summarise(MeanMovement=mean(Movement))%>%
+
+ ggscatterhist(x="rank100Death_pc", y="MeanMovement",
+              #size = "Population.density",
+             color = "blue",
+              alpha=0.3,
+              #add="jitter",
+              #shape = 1,
+              #label = "Country",
+              #repel = T,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Total Deaths",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+
+```
+
+
+
+
+

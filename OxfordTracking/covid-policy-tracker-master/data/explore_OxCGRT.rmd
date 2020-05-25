@@ -63,6 +63,8 @@ options("jtools-digits" = 4,scipen=99) # set displayed decimal places to 4
 
 #https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
+#promising scatterplot source: https://stackoverflow.com/questions/8545035/scatterplot-with-marginal-histograms-in-ggplot2 
+
 df<-read.csv(here("df_covid_long.csv"))%>%
   filter(!is.na(StringencyIndex))%>%
   mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
@@ -483,6 +485,9 @@ cor.test(df$DifMoveLag,df$DifPol)
 
 
 Nothing too promising, especially in the lagged case. 
+
+
+
 
 
 ```{r StCtrMove, fig.cap= "Measuring Movement-responsiveness of countries to policy index."}
