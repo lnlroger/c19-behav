@@ -14,6 +14,7 @@ source("LR_import-data.R")
 
 library("ggpubr")
 library("dLagM")
+library("DT")
 ```
 
 ## Comparison with CoronaNet
@@ -230,6 +231,15 @@ ggplot(arrange(df.coeffs.reorder,LongRunCoeff),aes(y=Country, x=LongRunCoeff)) +
         text = element_text(size=7))
 
 ```
+
+Putting the previous figure into a table:
+
+```{r}
+datatable(lr.coeffs.covariates)
+
+
+```
+
 
 ```{r coeffs by, echo=FALSE}
 

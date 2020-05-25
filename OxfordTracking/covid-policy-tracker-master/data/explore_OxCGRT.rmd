@@ -333,7 +333,7 @@ df%>%
 
 ```
 
-Impressive correlation. Is it the same across continent?
+<!-- Impressive correlation. Is it the same across continent? Too long script don't run it. -->
 
 
 ```{r include=FALSE}
@@ -419,6 +419,62 @@ df%>%
 
 Hmmmm.... so Movement correlates better with the lagged version of the index. 
 This is really shouldn't happen. 
+Let's get rid of 0s
+
+
+```{r}
+
+z<-
+df%>% 
+  filter(StringencyIndex!=0)
+  
+  ggscatterhist(z,x="StringencyIndex", y="Movement_lag_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+
+
+```{r}
+
+
+  
+  ggscatterhist(z,x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+
+
+
 Let's consider first differences.
 
 ```{r}
@@ -429,8 +485,11 @@ df<-df%>%
   mutate(DifPol=StringencyIndex-dplyr::lag(StringencyIndex,1))
 
 
-cor.test(df$DifMove,df$DifPol)
+z<-df%>%
+  filter(StringencyIndex!=0)
 
+cor.test(df$DifMove,df$DifPol)
+cor.test(z$DifMove,z$DifPol)
 
 df%>%  
   ggscatterhist(x="DifMove", y="DifPol",
@@ -447,9 +506,11 @@ df%>%
               title="Movement and Strigency Index first differences - Non-lagged",
               add.params = list(color="black",fill = "lightgray"),
               margin.params = list(colour="black",fill = "lightgray"),
-              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+              cor.coeff.args = list(method = "pearson",label.x=0,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
 
 cor.test(df$DifMoveLag,df$DifPol)
+
+cor.test(z$DifMoveLag,z$DifPol)
 
 
 ```
@@ -516,4 +577,11 @@ Countries like Sweden, Denmark and Norway are in the bottom-10.
 So it looks promising. 
 South Korea is also in the bottom 10, with a coef. that is not sign. different than 0. 
 Weird...
+
+
+# Relation with Google and Oxford
+
+
+
+
 
