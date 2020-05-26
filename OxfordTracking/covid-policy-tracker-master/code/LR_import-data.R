@@ -55,6 +55,11 @@ df.use <- df %>%
          polity2, risktaking, patience, ROL,
          GDP.capita, CaseLog,
          Continent, Region) %>%
+  mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
+  mutate(Movement_lead_1d=dplyr::lead(Movement,1))%>%
+  mutate(DifMove=Movement-Movement_lag_1d)%>%
+  mutate(DifMoveLag=dplyr::lag(DifMove,1))%>%
+  mutate(DifPol=IndexCoronaNet-dplyr::lag(IndexCoronaNet,1))%>%
   ungroup()
 
 rm(df)

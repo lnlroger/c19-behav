@@ -114,7 +114,8 @@ dfl<-merge(dfl,k,by="ID")%>%
 
 # Data source
 
-The data tracks down all announcements on a day-to-day basis and constructs an index capturing stringency. 
+The policy is reported for each day a policy **is in place**.
+
 See [here](https://www.nber.org/papers/w27082){target="_blank"} for paper and [here](https://osf.io/3sn2k/){target="_blank"} for data. 
 
 The data set does not specify which sub-region within a country implemented each measure - but does record if a policy was regional. 
@@ -211,7 +212,7 @@ Let's focus on the slope a bit more.
 ```{r coef, fig.cap="Coefficients of regressing Movement on Policy Stringency"}
 df%>%
   #na.omit() %>%
-  filter(!is.na(COL),!is.na(Movement),!is.na(StringencyIndex))%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
   #filter(Country=="Germany")%>%
   group_by(Country)%>%
   #summarise(Mean=mean(points))
@@ -220,13 +221,30 @@ df%>%
             n=n())%>%
   mutate(Country = forcats::fct_reorder(Country, coef)) %>%
 
-  ggplot(aes(x=Country, y=coef)) + 
+  ggplot(aes(x=coef, y=Country)) + 
   geom_point(aes(size=se),colour="blue",alpha=0.25)+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
   #facet_wrap(~prRange)
 
 ```
+
+Putting the previous on a table:
+```{r}
+df%>%
+  #na.omit() %>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  #filter(Country=="Germany")%>%
+  group_by(Country)%>%
+  #summarise(Mean=mean(points))
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            n=n())%>%
+  mutate(Country = forcats::fct_reorder(Country, coef))%>%
+  datatable()
+
+```
+
 
 
 Can we interprate the coefficients of Figure \@ref(fig:coef) as a proxy for adherence? 
