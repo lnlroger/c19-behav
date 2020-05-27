@@ -115,7 +115,7 @@ datatable(lr.coeffs.covariates)
 
 # ARDL vs. simple correlation coefficient
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, OxCorTest, fig.cap="Correlation comparison of Oxford indexes"}
 df<-read.csv(here("df_covid_long.csv"))%>%
   filter(!is.na(StringencyIndex))%>%
   mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
@@ -169,80 +169,269 @@ df_short<-df%>%
   #mutate(Country = forcats::fct_reorder(Country, coef))%>%
   #datatable()
 
+
+
 com<-merge(df_short,lr.coeffs.covariates,by="Country")
+
 
 #com<-com%>%
 #  filter(se_simple<summary(com$se_simple)[[5]])
 #Doesn't help to rid of extremely noisy observations
 
-cor.test(data=com,com$COL,com$LongRunCoeff)
-cor.test(data=com,com$COL,com$cor_simple)
-cor.test(data=com,com$COL,com$cor_dif)
+r1<-c(cor.test(data=com,com$COL,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$COL,com$LongRunCoeff)$p.value[[1]],"LongRun","COL")
+r2<-c(cor.test(data=com,com$COL,com$cor_simple)$estimate[[1]],cor.test(data=com,com$COL,com$cor_simple)$p.value[[1]],"Simple","COL")
+r3<-c(cor.test(data=com,com$COL,com$cor_dif)$estimate[[1]],cor.test(data=com,com$COL,com$cor_dif)$p.value[[1]],"FirstDif","COL")
 
-cor.test(data=com,com$risktaking,com$LongRunCoeff)
-cor.test(data=com,com$risktaking,com$cor_simple)
-cor.test(data=com,com$risktaking,com$cor_dif)
 
-cor.test(data=com,com$ROL,com$LongRunCoeff)
-cor.test(data=com,com$ROL,com$cor_simple)
-cor.test(data=com,com$ROL,com$cor_dif) #significance
 
-cor.test(data=com,com$polity2,com$LongRunCoeff)
-cor.test(data=com,com$polity2,com$cor_simple)
-cor.test(data=com,com$polity2,com$cor_dif)
 
-cor.test(data=com,com$CaseLog,com$LongRunCoeff)
-cor.test(data=com,com$CaseLog,com$cor_simple)
-cor.test(data=com,com$CaseLog,com$cor_dif)
+r4<-c(cor.test(data=com,com$risktaking,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$risktaking,com$LongRunCoeff)$p.value[[1]],"LongRun","Risk")
+r5<-c(cor.test(data=com,com$risktaking,com$cor_simple)$estimate[[1]],cor.test(data=com,com$risktaking,com$cor_simple)$p.value[[1]],"Simple","Risk")
+r6<-c(cor.test(data=com,com$risktaking,com$cor_dif)$estimate[[1]],cor.test(data=com,com$risktaking,com$cor_dif)$p.value[[1]],"FirstDif","Risk")
 
-cor.test(data=com,com$patience,com$LongRunCoeff)
-cor.test(data=com,com$patience,com$cor_simple)
-cor.test(data=com,com$patience,com$cor_dif)
 
+
+r7<-c(cor.test(data=com,com$ROL,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$ROL,com$LongRunCoeff)$p.value[[1]],"LongRun","ROL")
+r8<-c(cor.test(data=com,com$ROL,com$cor_simple)$estimate[[1]],cor.test(data=com,com$ROL,com$cor_simple)$p.value[[1]],"Simple","ROL")
+r9<-c(cor.test(data=com,com$ROL,com$cor_dif)$estimate[[1]],cor.test(data=com,com$ROL,com$cor_dif)$p.value[[1]],"FirstDif","ROL") 
+
+r10<-c(cor.test(data=com,com$polity2,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$polity2,com$LongRunCoeff)$p.value[[1]],"LongRun","Polity")
+r11<-c(cor.test(data=com,com$polity2,com$cor_simple)$estimate[[1]],cor.test(data=com,com$polity2,com$cor_simple)$p.value[[1]],"Simple","Polity")
+r12<-c(cor.test(data=com,com$polity2,com$cor_dif)$estimate[[1]],cor.test(data=com,com$polity2,com$cor_dif)$p.value[[1]],"FirstDif","Polity")
+
+r13<-c(cor.test(data=com,com$CaseLog,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$risktaking,com$CaseLog)$p.value[[1]],"LongRun","CaseLog")
+r14<-c(cor.test(data=com,com$CaseLog,com$cor_simple)$estimate[[1]],cor.test(data=com,com$risktaking,com$cor_simple)$p.value[[1]],"Simple","CaseLog")
+r15<-c(cor.test(data=com,com$CaseLog,com$cor_dif)$estimate[[1]],cor.test(data=com,com$risktaking,com$cor_dif)$p.value[[1]],"FirstDif","CaseLog")
+
+r16<-c(cor.test(data=com,com$patience,com$LongRunCoeff)$estimate[[1]],cor.test(data=com,com$patience,com$LongRunCoeff)$p.value[[1]],"LongRun","Patience")
+r17<-c(cor.test(data=com,com$patience,com$cor_simple)$estimate[[1]],cor.test(data=com,com$patience,com$cor_simple)$p.value[[1]],"Simple","Patience")
+r18<-c(cor.test(data=com,com$patience,com$cor_dif)$estimate[[1]],cor.test(data=com,com$patience,com$cor_dif)$p.value[[1]],"FirstDif","Patience")
+
+
+
+
+
+cor<-as.data.frame(rbind(r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16,r17,r18))
+names(cor)<-c("Cor.Coef","pvalue","Estimator","Index")
+cor$Cor.Coef<-round(as.numeric(as.character(cor$Cor.Coef)),3)
+cor$pvalue<-round(as.numeric(as.character(cor$pvalue)),3)
+  
+ggplot(data=cor,aes(x=Index,y=Cor.Coef,fill=Estimator))+
+  geom_bar(stat="identity",position = "dodge")+
+  theme_bw()
 
 
 ```
 
-# Potential determinants / covariates of compliance
+Nothing too spectacular here, other than a weak significance between the simple correlation coefficient (that is corr(StrIndex, Movement)) in the case of patience (p=0.094). 
+But shouldn't be surprised really. 
+We would expect low correlations. The important thing is that we get an interesting story in a regression that controls for several aspects. 
+Looks like FirstDif is doing a bit better than LongRun in 4/6 categories. 
+Since - if I understand correctly - FirstDif is similar to a LongRun with no lags, maybe we can consider a version that includes less lags. 
+Perhaps a BIC or AIC score can help us decide. 
+Maybe Elastic net too. 
 
-Below, as usual a couple of scatterplots plotting this measure of compliance against a number of other factors (see axis labels). 
+For a sanity check, I also test the CoronaNet index - not the LongRun index but feel free to add it. 
 
-Spoiler: Nothing going on.
 
-```{r covariates, echo=FALSE}
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,polity2)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
+```{r CNCorTest, fig.cap="Correlation comparison of CN indexes"}
+
+cn<-df.use%>%
+  filter(!is.na(Movement),!is.na(IndexCoronaNet))%>%
+  group_by(Country)%>%
+  summarise(cn_cor_simple=cor.test(IndexCoronaNet,Movement)$estimate[[1]],
+    cn_coef_simple=summary(lm(Movement~IndexCoronaNet))$coefficients[2,1],
+            se_simple=summary(lm(Movement~IndexCoronaNet))$coefficients[2,2],
+    cn_cor_dif=cor.test(DifMove,DifPol)$estimate[[1]],
+            n=n())
+
+cn_com<-merge(com,cn,by="Country")
+
+
+
+
+r2<-c(cor.test(data=cn_com,cn_com$COL,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$COL,cn_com$cor_simple)$p.value[[1]],"Simple","COL")
+r3<-c(cor.test(data=cn_com,cn_com$COL,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$COL,cn_com$cor_dif)$p.value[[1]],"FirstDif","COL")
+
+
+
+r5<-c(cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_simple)$p.value[[1]],"Simple","Risk")
+r6<-c(cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_dif)$p.value[[1]],"FirstDif","Risk")
+
+
+
+r8<-c(cor.test(data=cn_com,cn_com$ROL,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$ROL,cn_com$cor_simple)$p.value[[1]],"Simple","ROL")
+r9<-c(cor.test(data=cn_com,cn_com$ROL,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$ROL,cn_com$cor_dif)$p.value[[1]],"FirstDif","ROL") 
+
+r11<-c(cor.test(data=cn_com,cn_com$polity2,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$polity2,cn_com$cor_simple)$p.value[[1]],"Simple","Polity")
+r12<-c(cor.test(data=cn_com,cn_com$polity2,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$polity2,cn_com$cor_dif)$p.value[[1]],"FirstDif","Polity")
+
+
+r14<-c(cor.test(data=cn_com,cn_com$CaseLog,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_simple)$p.value[[1]],"Simple","CaseLog")
+r15<-c(cor.test(data=cn_com,cn_com$CaseLog,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$risktaking,cn_com$cor_dif)$p.value[[1]],"FirstDif","CaseLog")
+
+
+r17<-c(cor.test(data=cn_com,cn_com$patience,cn_com$cor_simple)$estimate[[1]],cor.test(data=cn_com,cn_com$patience,cn_com$cor_simple)$p.value[[1]],"Simple","Patience")
+r18<-c(cor.test(data=cn_com,cn_com$patience,cn_com$cor_dif)$estimate[[1]],cor.test(data=cn_com,cn_com$patience,cn_com$cor_dif)$p.value[[1]],"FirstDif","Patience")
+
+
+
+
+
+cn_cor<-as.data.frame(rbind(r2,r3,r5,r6,r8,r9,r11,r12,r14,r15,r17,r18))
+names(cn_cor)<-c("Cor.Coef","pvalue","Estimator","Index")
+cn_cor$Cor.Coef<-round(as.numeric(as.character(cn_cor$Cor.Coef)),3)
+cn_cor$pvalue<-round(as.numeric(as.character(cn_cor$pvalue)),3)
+  
+ggplot(data=cn_cor,aes(x=Index,y=Cor.Coef,fill=Estimator))+
+  geom_bar(stat="identity",position = "dodge")+
   theme_bw()
 
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,risktaking)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
-  theme_bw()
 
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,patience)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
-  theme_bw()
+```
 
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,ROL)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
-  theme_bw()
+Nothing spectacular again, except that correlation between the simple correlation coef. and patience becomes a bit more prominent (r=0.19, p=0.054).  
+
+# Towards a more targeted index. 
 
 
 
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,GDP.capita)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
-  theme_bw()
-ggplot(lr.coeffs.covariates, aes(LongRunCoeff,CaseLog)) +
-  geom_point() +
-  geom_smooth(method=lm, color="darkred", fill="blue") + 
-  stat_cor(method = "pearson") +
-  theme_bw()
+
+Instead of adding up different categories of movement, let's focus on measures aiming at reducing movement in one specific dimension and whether people adhered to that. 
+'Workplaces, Retail and recreation' corresponds with Workplace closing. 
+'Parks' with canceling public events and (more importantly) with restrictions on gathering size. 
+'Transit stations' is not that interesting as the gvt controls this centrally. So adherence wouldn't matter. 
+
+The approach I am thinking is twofold.
+
+First, see what predicts a gvt's decision to introduce a restriction (as well as its severity). 
+Second, what predicts (the determinants) of ensuing adherence. 
+
+This approach disaggregates our previous analysis in the following ways:
+
+1. focuses on one aspect of the movement measure instead of a generic aggregation
+2. examines only countries that have introduced a version of the restriction
+3. distinguises between two time periods: the one when positive restricitons were introduced (first phase of pandemic) and the second phase, when relaxations started. 
+
+
+## predicting restrictions
+
+```{r}
+c<-df%>%
+  mutate(Date=as.Date(Date))%>%
+  filter(Date>dmy("15-03-2020"))%>%
+  filter(Date<dmy("01-05-2020"))%>%
+  group_by(Country)%>%
+  summarise(School=mean(C1_School.closing),PubEvnts=mean(C3_Cancel.public.events),
+            Gather=mean(C4_Restrictions.on.gatherings),
+            PubTrans=mean(C5_Close.public.transport),
+            StHome=mean(C6_Stay.at.home.requirements),
+            IntTransf=mean(C7_Restrictions.on.internal.movement),
+            IntTravel=mean(C8_International.travel.controls),
+            InfoCamp=mean(H1_Public.information.campaigns),
+            Parks=mean(parks_percent_change_from_baseline),
+            Residential=mean(residential_percent_change_from_baseline),
+            Work=mean(workplaces_percent_change_from_baseline),
+            Transit=mean(transit_stations_percent_change_from_baseline),
+            RetailRecreation=mean(retail_and_recreation_percent_change_from_baseline),
+            GroceryPharm=mean(grocery_and_pharmacy_percent_change_from_baseline))%>%
+  ungroup()%>%
+  drop_na()
+
+
+c_cov<-merge(c,com,by="Country")
+
+#%>%
+ # drop_na()
+
+C<-dplyr::select_if(c_cov,is.numeric)
+
+corTable<-cor(C)
+  
+View(cor(C))
+
+
+write.csv(corTable,"correlations.csv")
+
+  
+```
+
+
+
+
+## Predicting response to decision
+
+```{r}
+
+df_100<-df%>%
+  mutate(Residential_100=residential_percent_change_from_baseline/100)
+
+residential<-  reshape(df_100, idvar="ID",
+                      varying = list(c('C6_Stay.at.home.requirements','Residential_100')),
+                                      
+                      v.names = 'Value', 
+                      timevar='Type',
+                      times=c('C6_Stay.at.home.requirements','Residential_100'),
+                      
+                      direction = "long")%>%
+ # dplyr::select(Country,Continent,Date,Value,Type)%>%
+  mutate(Date=ymd(Date))
+
+residential%>%
+  mutate(Date=as.Date(Date))%>%
+  mutate(label = if_else(Date == max(Date,na.rm=T), as.character(Country), NA_character_)) %>%
+
+  filter(Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
+  filter(Continent=="Europe")%>%
+  filter(!is.na(Value))%>%
+ # filter(Type=="residential_percent_change_from_baseline")%>%
+  group_by(Country)%>%
+  ggplot(aes(x = Date, y = Value,col=Type)) + 
+  geom_line(size=1) +
+  #scale_colour_brewer(palette = 'Set1')+
+  #guides(colour="legend")
+ 
+  scale_color_discrete(guide = FALSE)+
+  
+  facet_wrap(~Country)+
+   theme_minimal()+
+  theme(text = element_text(size=10))+
+  geom_label_repel(aes(label = label),
+                  nudge_x = 1,
+                  na.rm = TRUE)
+
+```
+
+```{r}
+
+residential<-df%>%
+  mutate(dif_res_move=residential_percent_change_from_baseline-dplyr::lag(residential_percent_change_from_baseline,1))%>%
+  mutate(dif_res_pol=C6_Stay.at.home.requirements-dplyr::lag(C6_Stay.at.home.requirements,1))
+
+#resid<-residential%>%
+ # group_by(Country)%>%
+  #mutate(q=which.first(dif_res_pol<0))
+
+res<-
+  df%>% 
+  mutate(Date=as.Date(Date))%>%
+ filter(!is.na(residential_percent_change_from_baseline))%>%
+        filter(!is.na(C6_Stay.at.home.requirements))%>%
+  group_by(Country)%>%
+  #filter(Country %in% c("Germany","Italy","Greece","United Kingdom","Aruba"))%>%
+  arrange(Country,Date)%>%
+  mutate(n=n())%>%
+  filter(n>85)%>%
+  summarise(coef=summary(lm(residential_percent_change_from_baseline~C6_Stay.at.home.requirements))$coefficients[2,1],n=n())
+  #summarise(n=n(),max=max(C6_Stay.at.home.requirements))
+
+
+res
+
+```
+
+
+
+
+
+
