@@ -22,7 +22,7 @@ ggplot(
 countries.to.plot <- c(unique(df.use$Country)[seq(1,163,35)],
                        "United States",
                        "Germany",
-                       "South Korea") # Random bunch of countries
+                       "Nicaragua") # Random bunch of countries
 
 df.plot.ts.compare <-
   df.use %>%
@@ -126,23 +126,26 @@ df.ARDL <- df.use %>%
 
 lr.coeffs <- data.frame(Country = unique(df.ARDL$Country),
                         LongRunCoeff = NA)
+models.ardl <- list()
+
 # Prepare data
 for (ctry in unique(df.ARDL$Country)) {
 
-df.now <- df.ARDL %>%
-  filter(Country == ctry)
-
-# Run estimation
-p.ardl <- 3 # Lags of independent variable
-q.ardl <- 3 # Autoregressive lags
-model.ardl <- ardlDlm(formula = diff.Movement ~ diff.StringencyIndex, 
-                      data = df.now,
-                      p = p.ardl , q = q.ardl)
-# Long run parameter
-lr.coefficient.ardl <- sum(model.ardl$model$coefficients[2:5]) /
-  (1-sum(model.ardl$model$coefficients[6:8]))
-
-lr.coeffs$LongRunCoeff[which(lr.coeffs$Country == ctry)] <- lr.coefficient.ardl
+  df.now <- df.ARDL %>%
+    filter(Country == ctry)
+  
+  # Run estimation
+  p.ardl <- 3 # Lags of independent variable
+  q.ardl <- 3 # Autoregressive lags
+  model.ardl <- ardlDlm(formula = diff.Movement ~ diff.StringencyIndex, 
+                        data = df.now,
+                        p = p.ardl , q = q.ardl)
+  # Long run parameter
+  lr.coefficient.ardl <- sum(model.ardl$model$coefficients[2:5]) /
+    (1-sum(model.ardl$model$coefficients[6:8]))
+  
+  lr.coeffs$LongRunCoeff[which(lr.coeffs$Country == ctry)] <- lr.coefficient.ardl
+  models.ardl[[ctry]] <- model.ardl
 }
 
 rm(df.now, df.ARDL, model.ardl, ctry, lr.coefficient.ardl,p.ardl,q.ardl)
@@ -153,11 +156,11 @@ lr.coeffs.covariates <- lr.coeffs %>%
   dplyr::select(Country, LongRunCoeff, polity2, risktaking, 
                 patience, ROL, GDP.capita, CaseLog,
                 Continent, Region) %>%
+  group_by(Country) %>%
   fill(polity2, risktaking, patience, ROL, GDP.capita, CaseLog, 
        Continent, Region, .direction = "updown") %>%
   distinct(Country, LongRunCoeff, polity2, risktaking, patience, ROL, GDP.capita, CaseLog,
            Continent, Region) %>%
-  group_by(Country) %>%
   filter(row_number()==n())
 
 df.coeffs.reorder <- lr.coeffs.covariates %>%
