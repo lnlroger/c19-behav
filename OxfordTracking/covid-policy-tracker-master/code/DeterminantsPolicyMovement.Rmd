@@ -1,0 +1,163 @@
+---
+title: "Some exploration of Oxford Policy Response Database"
+author: "Lio, Orestis"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+  
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library("ggpubr")
+library("dLagM")
+library("DT")
+library("here")
+library("dplyr")
+library("ggplot2")
+library("lubridate")
+
+knitr::opts_chunk$set(echo = FALSE)
+rm(list = ls())
+source("OK_import_long.R")
+
+
+```
+
+
+
+```{r}
+
+```
+
+
+# Defining a lockdown
+
+The previous data source was defining a lockdown as: 
+
+>A lockdown is assumed when schools/universities and any non-essential businesses are closed.
+
+In the case of Oxford this would imply when C1 & C2 are higher than 0. 
+Not too bad. 
+Canceling public events is not really a lock down and closing public transport is somewhat extreme (closer to what we would consider a ...what's the word?). 
+
+
+```{r, C1C2, fig.cap="Lockdown=School&Workplace"}
+
+dfl%>%
+  filter(Type=='C1_School.closing'|Type=='C2_Workplace.closing')%>%
+  filter(!is.na(Value))%>%
+  filter(Continent=='Europe')%>%
+  group_by(Country)%>%
+  ggplot()+
+  geom_line(aes(x=Date,y=Value,col=Type),size=2,position="dodge")+
+  facet_wrap(~Country)+
+  theme_bw()
+  
+  
+
+
+```
+
+Conveniently, in almost all European cases, the two measures are implemented simultaneously. But...
+By that criterion, every European country has gone into lockdown. 
+Some countries earlier than others but still...not enough variation. 
+I guess the intensity matters. Sweden for example scores 1 for both indexes. 
+What does Oxford consider as C1=1 (C2=1)? 
+Maybe we can raise the threshold to whatever score implies: CLOSED. 
+
+Let's tighten up the criteria. What about staying at home?
+
+```{r, C6, fig.cap="Lockdown=StayHome"}
+
+dfl%>%
+  filter(Type=='C6_Stay.at.home.requirements')%>%
+  filter(!is.na(Value))%>%
+  filter(Continent=='Europe')%>%
+  group_by(Country)%>%
+  ggplot()+
+  geom_line(aes(x=Date,y=Value,col=Type),size=2,position="dodge")+
+  facet_wrap(~Country)+
+  theme_bw()
+  
+  
+
+
+```
+
+This looks somewhat better. Iceland, Sweden and Norway did not bother. 
+Belgium was late. 
+Surprisingly, however, Greece is also portrayed to be late... Greece was among the strictest and first... 
+Also, Spain and France does not appear to have reached a maximum score - like Italy did. 
+This is also strange.
+
+Did anyone close public transports?
+
+```{r, C5, fig.cap="Lockdown=PublicTransp"}
+
+dfl%>%
+  filter(Type=='C5_Close.public.transport')%>%
+  filter(!is.na(Value))%>%
+  filter(Continent=='Europe')%>%
+  group_by(Country)%>%
+  ggplot()+
+  geom_line(aes(x=Date,y=Value,col=Type),size=2,position="dodge")+
+  facet_wrap(~Country)+
+  theme_bw()
+  
+  
+
+
+```
+
+What if we throw the kitchen and the sink?
+Hard to make sense of this...
+Maybe someone who is not colourblind can help. 
+We would like to pick the criteria for a lockdown according to:
+
+1. Have interesting variation across countries: some implemented it, some didn't
+2. Have interesting variation for the duration in which it lasted 
+
+  - the relaxation period is not yet accounted fully, this is captured mostly by the timing of the start
+  
+3. Make intuitive sense when telling the story
+
+
+
+```{r, Oxford, fig.cap="Lockdown=All"}
+
+dfl%>%
+  filter(Type %in% OxVars)%>%
+  filter(!is.na(Value))%>%
+  filter(Continent=='Europe')%>%
+  group_by(Country)%>%
+  ggplot()+
+  geom_line(aes(x=Date,y=Value,col=Type),size=2,position="dodge")+
+  facet_wrap(~Country)+
+  theme_bw()
+  
+  
+
+
+```
+
+
+
