@@ -44,6 +44,7 @@ dfl<-merge(dfl,k,by="ID")%>%
   mutate(Value_lag_1d=dplyr::lag(Value,1))
 
 
+0.25*1.5
 
 
 
