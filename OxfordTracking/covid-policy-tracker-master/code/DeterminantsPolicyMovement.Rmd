@@ -37,7 +37,8 @@ library("lubridate")
 
 knitr::opts_chunk$set(echo = FALSE)
 rm(list = ls())
-source("OK_import_long.R")
+#source("OK_import_long.R")
+source("OK_import_long_UK.R")
 
 
 ```
@@ -159,5 +160,28 @@ dfl%>%
 
 ```
 
+# Case study: UK
+
+I need to recompile the Google.csv so that it stores cities. Currently it only records Country averages. 
+
+
+```{r, UKOverv, fig.cap="Oxford Policy in UK"}
+
+UK<-dfl%>%
+  filter(sub_region_1!="")%>%
+  filter(Type %in%c(OxVars))%>%
+  filter(!is.na(Value))
+  
+  
+ # filter(Continent=='Europe')
+ggplot(UK)+
+  geom_line(aes(x=Date,y=Value,col=Type),size=2,position="dodge")+
+  #facet_wrap(~Type)+
+  theme_bw()
+  
+  
+
+
+```
 
 

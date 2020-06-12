@@ -1,8 +1,9 @@
 # mobility_long: daily data
 # mobility_short: mobility on latest available date
+library(countrycode)
 
 mobility_long <- read.csv("Google/Global_Mobility_Report.csv")%>%
-  filter(sub_region_1=="")%>%
+  #filter(sub_region_1=="")%>%
   mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline",
                                 "grocery_and_pharmacy_percent_change_from_baseline",
                                 "parks_percent_change_from_baseline", 

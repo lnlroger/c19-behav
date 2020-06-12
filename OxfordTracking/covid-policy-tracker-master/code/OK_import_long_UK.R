@@ -1,4 +1,6 @@
 df<-read.csv(here("df_covid_long.csv"))%>%
+  #filter(sub_region_1=="")%>%
+  filter(Country=="United Kingdom")%>%
   filter(!is.na(StringencyIndex))%>%
   mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
   mutate(Movement_lead_1d=dplyr::lead(Movement,1))%>%
