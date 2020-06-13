@@ -1,0 +1,70 @@
+---
+title: "Coefficient Tables"
+author: "Lio, Orestis"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+  
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library("tidyverse")
+library("lubridate")
+
+knitr::opts_chunk$set(echo = FALSE)
+rm(list = ls())
+
+source("ImportLong.r")
+
+df2<-df%>%
+  dplyr::select(all_of(c(basic,GoogleVars,behavioural,covid,economy,Policy)))
+
+
+
+#C1_School.closing:H1_Public.information.campaigns
+
+```
+
+
+
+```{r}
+df3<-df2%>%
+  dplyr::select_if(is.numeric)
+
+c<-cor(df3,use="pairwise.complete.obs")
+
+
+
+df_short<-df2%>%
+  group_by(Country)%>%
+  summarise_all(last,na.rm=TRUE)
+
+df_short2<-df_short%>%
+   dplyr::select_if(is.numeric)
+
+
+c2<-cor(df_short2,use="pairwise.complete.obs")
+
+
+```
+
+
