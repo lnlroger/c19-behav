@@ -9,7 +9,7 @@ covid<-c("total_cases", "new_cases", "total_deaths", "new_deaths")
 
 economy<-c("Gini","GDP.capita","polity2")
 
-behavioural<-c("COL","ROL","patience","risktaking","altruism","trust","MAS","UAI","LTO")
+behavioural<-c("COL","ROL","MAS","UAI","LTO","IND","patience","risktaking","altruism","trust")
 
 GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'workplaces_percent_change_from_baseline','residential_percent_change_from_baseline','Movement')
 

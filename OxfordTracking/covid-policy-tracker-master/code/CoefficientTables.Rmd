@@ -44,26 +44,40 @@ df2<-df%>%
 
 ```
 
+```{r}
 
+cr<-df2%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement))%>%
+  group_by(Country)%>%
+  mutate(cor_simple=cor.test(StringencyIndex,Movement)$estimate[[1]],
+    coef_simple=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se_simple=summary(lm(Movement~StringencyIndex))$coefficients[2,2])
+
+```
 
 ```{r}
-df3<-df2%>%
-  dplyr::select_if(is.numeric)
+df3<-cr%>%
+  filter(!is.na(LTO))%>%
+  group_by(Country)%>%
+  summarise_all(first)%>%
+  dplyr::select_if(is.numeric)%>%
+  dplyr::select(COL:se_simple)%>%
+  dplyr::select(-StringencyIndex)
 
 c<-cor(df3,use="pairwise.complete.obs")
 
 
-
-df_short<-df2%>%
+lto<-df%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement),!is.na(LTO))%>%
   group_by(Country)%>%
-  summarise_all(last,na.rm=TRUE)
+  mutate(cor_simple=cor.test(StringencyIndex,Movement)$estimate[[1]])%>%
+  summarise(LongTerm=mean(LTO),Cor=mean(cor_simple))%>%
+   mutate(Country = forcats::fct_reorder(Country, LongTerm))
+  
 
-df_short2<-df_short%>%
-   dplyr::select_if(is.numeric)
 
 
-c2<-cor(df_short2,use="pairwise.complete.obs")
-
+#cor.test(lto$LongTerm,lto$Cor)  
 
 ```
 
