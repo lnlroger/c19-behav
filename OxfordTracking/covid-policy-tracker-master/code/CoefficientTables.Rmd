@@ -57,7 +57,7 @@ cr<-df2%>%
 
 ```{r}
 df3<-cr%>%
-  filter(!is.na(LTO))%>%
+  filter(!is.na(patience))%>%
   group_by(Country)%>%
   summarise_all(first)%>%
   dplyr::select_if(is.numeric)%>%
