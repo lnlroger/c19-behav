@@ -1,3 +1,9 @@
+#Files that require regular updating
+## Case Death
+## Google
+## Oxford
+
+
 library("tidyverse")
 library("countrycode")
 

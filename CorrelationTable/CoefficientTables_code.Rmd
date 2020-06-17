@@ -1,0 +1,103 @@
+---
+title: "Coefficient Tables"
+author: "Lio, Orestis"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+  
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library("tidyverse")
+library("lubridate")
+
+#rm(list = ls())
+
+source("ImportLong.r")
+
+df2<-df%>%
+  dplyr::select(all_of(c(basic,GoogleVars,behavioural,covid,economy,Policy)))
+
+
+
+#C1_School.closing:H1_Public.information.campaigns
+
+```
+
+First, it might be good to seperate between the restriction period and the relaxation period. 
+Let's see if the Oxford index is capturing this difference meaningfully. 
+
+
+```{r}
+df2%>%
+  filter(!is.na(LTO))%>%
+  group_by(Country)%>%
+  ggplot(aes(x=week,y=StringencyIndex))+
+  geom_line()+
+  facet_wrap(~Country)+
+  geom_vline(xintercept = as.Date("2020-05-17"),colour="red")+
+  theme_bw()
+  
+
+```
+I look here only at the 21 countries for which we have information about their Long-Term Orientation. 
+In most cases, we see a tendency to relax policies sometime around the middle of May. 
+A more complete treatise would identify that exact date for every country. 
+But for the sake of simplicity, I arbitrarily set the end of the first period on the 17th of May (vertical red line). 
+
+```{r}
+
+cr<-df2%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement),week<as.Date("2020-05-17"))%>%
+  group_by(Country)%>%
+  mutate(cor_simple=cor.test(StringencyIndex,Movement)$estimate[[1]],
+    coef_simple=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se_simple=summary(lm(Movement~StringencyIndex))$coefficients[2,2])
+
+```
+
+```{r}
+df3<-cr%>%
+  #filter(!is.na(patience))%>%
+  group_by(Country)%>%
+  summarise_all(last)%>%
+  dplyr::select_if(is.numeric)%>%
+  dplyr::select(COL:coef_simple)%>%
+  dplyr::select(-StringencyIndex)
+
+c<-round(cor(df3,use="pairwise.complete.obs"),3)
+
+
+DT::datatable(c)
+
+corrplot::corrplot(c, method="circle")
+
+#cor.test(lto$LongTerm,lto$Cor)  
+
+```
+
+And this is the correlation table (and a heatmap visualisation) for all countries (not just the LTO ones) that we have info about movement and stringency index. 
+An improved version would also display the number of countries that we have information of. 
+Perhaps a geom_point plot where the size of the circle is that number. 
+But, for now, maybe this will suffice. 
+
+

@@ -1,0 +1,605 @@
+---
+title: "Oxford Policy Tracker exploration"
+author: "Orestis, Lio"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+
+
+#library(knitcitations); cleanbib() cite_options(citation_format = "pandoc", check.entries=FALSE)
+library(bibtex)
+
+library(tidyr)
+library(dplyr)
+library(stringr)
+#library(lmerTest)
+library(stargazer)
+library(ggplot2)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(ggpubr)
+library(countrycode)
+library(lubridate)
+library(here)
+library(Hmisc)
+library(ggpubr)
+library(DT)
+
+
+options("jtools-digits" = 4,scipen=99) # set displayed decimal places to 4
+
+#https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+
+#promising scatterplot source: https://stackoverflow.com/questions/8545035/scatterplot-with-marginal-histograms-in-ggplot2 
+
+df<-read.csv(here("df_covid_long.csv"))%>%
+  filter(!is.na(StringencyIndex))%>%
+  mutate(Movement_lag_1d=dplyr::lag(Movement,1))%>%
+  mutate(Movement_lead_1d=dplyr::lead(Movement,1))
+
+df$ID<-1:nrow(df)
+
+
+OxVars<-c('C1_School.closing', 'C1_Flag', 'C2_Workplace.closing','C2_Flag','C3_Cancel.public.events','C3_Flag','C4_Restrictions.on.gatherings','C4_Flag','C5_Close.public.transport','C6_Stay.at.home.requirements','C6_Flag','C7_Restrictions.on.internal.movement','C7_Flag,C8_International.travel.controls','H1_Public.information.campaigns','H1_Flag')
+
+GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'workplaces_percent_change_from_baseline','residential_percent_change_from_baseline','Movement')
+
+
+dfl<-reshape(df, idvar="ID",
+                      varying = list(c(GoogleVars,'StringencyIndex')),
+                                      
+                      v.names = 'Value', 
+                      timevar='Type',
+                      times=c(GoogleVars,'StringencyIndex'),
+                      
+                      direction = "long")%>%
+ # dplyr::select(Country,Continent,Date,Value,Type)%>%
+  mutate(Date=ymd(Date))
+
+
+
+
+k<-df%>%
+  dplyr::select(ID, StringencyIndex)
+
+dfl<-merge(dfl,k,by="ID")%>%
+  arrange(Country,Date,Type)%>%
+  mutate(Value_lag_1d=dplyr::lag(Value,1))
+
+#dfl is a long version of df (which is also a long version of df_short). 
+#Under the column "Value" I have expanded values for sub-categories of movement (groceries, restaurants, etc.). 
+#Under the column 'Type' you can see what each value corresponds to. I have also included the stringency index.
+#Google gives us 7 sub-categories + 1 for the stringency index=8. So for a single date, dfl has 8 observations instead of one and this is why dfl is 8-fold df.
+#I have also created a lagged variable: Value_lag_1d which tracks Value with one day's lag. 
+#Grouping by country and date should turn dfl to df (and make the columns Value and Type incomprehinsible unless summarised appropriately).
+
+  
+
+```
+
+
+
+# Data source
+
+The policy is reported for each day a policy **is in place**.
+
+See [here](https://www.nber.org/papers/w27082){target="_blank"} for paper and [here](https://osf.io/3sn2k/){target="_blank"} for data. 
+
+The data set does not specify which sub-region within a country implemented each measure - but does record if a policy was regional. 
+Does CoronaNet give regional info? 
+That would be an advantage for a more nuanced analysis. 
+
+Regarding the construction of the index:
+
+For each policy response measure they create a score by taking the ordinal value and adding a weighted constant if the policy is general rather than targeted, if applicable. 
+The resonse measures that are taken into account for the index involve the following categories:
+
+* C1: School closing, 
+* C2: workplace closing, 
+* C3: canceling public events, 
+* C4: restrictions on gathering size, 
+* C5: close public transport, 
+* C6: stay at home requirements,
+* C7: restrictions on internal movment
+* C8: restrictions on international level 
+* H1: purblic information campaign
+
+Every category gets two scores. 
+
+* Ordinal: measured on a scale of severity/ intensity ranging from 1 to 3 I think. For example C1_School.closing={1,2,3} 
+* Geographical: 0 for local and 1 for across entire country. I think the variable for this is C1_Flag. C8 does not have a flag (assuming it's general).
+
+They then rescale each of these by their maximum value to create a score between 0 and 100, with a missing value contributing 0.3. 
+These nine scores are then averaged to get the composite Stringency Index. 
+
+According to the authors: 
+
+>Importantly, the Stringency Index should not be interpreted as a measure of the
+appropriateness or effectiveness of a government's response. It does not provide
+information on how well policies are enforced, nor does it capture demographic or
+cultural characteristics that may affect the spread of COVID-19. Its value is instead to
+allow for efficient cross-national comparisons of government interventions.
+>> `r tufte::quote_footer('Hale, Thomas, Noam Angrist, Beatriz Kira, Anna Petherick, Toby
+Phillips, Samuel Webster. "Variation in Government Responses to COVID-19"')`
+
+
+Good, so we get to evaluate these policies ourselves. 
+
+
+
+
+# Stringency and movement
+
+
+```{r  }
+print("Summary of Stringency index")
+describe(df$StringencyIndex)
+```
+
+## Without time
+
+I focus here one the countries for which information about Collectivism. 
+No special reason, just one way to reduce the amount of countries we are looking at and make the figure more elligible. 
+
+
+```{r StrMov, fig.cap="Stringency and Movement across regions"}
+
+Ox<-readRDS(here("OxfordTracking/covid-policy-tracker-master/data/Oxf.rds"))%>%
+  rename(Country=CountryName)%>%
+  mutate(Country=countrycode::countrycode(Country,"country.name","country.name"))%>%
+  mutate(Date=lubridate::ymd(Date))%>%
+  mutate(week=lubridate::floor_date(Date,"week"))
+
+
+df%>%
+  #filter(Country=="South Korea")%>%
+  filter(!is.na(COL))%>%
+  mutate(CaseLog=scale(log(TotalCases)))%>%
+  mutate(DeathLog=scale(log(TotalDeaths)))%>%
+  
+   mutate(Country = forcats::fct_reorder(Country,as.numeric(Continent))) %>%
+  group_by(Continent,Country)%>%
+  #ggplot(aes(x=as.Date(Date),y=Movement,colour=Country,linetype=InLock))+
+  ggplot(aes(x=StringencyIndex,y=Movement,col=Continent))+
+  geom_point(col="black") +
+  geom_smooth()+
+  facet_wrap(~Country)+
+  scale_colour_brewer(palette = 'Set1')+
+  theme_bw()
+
+```
+
+There are a few things we can say by looking at Figure \@ref(fig:StrMov). 
+
+1. The run over the x-axis reveals how strictly each country took the threat. 
+2. The slope might reflect some sort of adherence. 
+
+Let's focus on the slope a bit more. 
+
+```{r coef, fig.cap="Coefficients of regressing Movement on Policy Stringency"}
+df%>%
+  #na.omit() %>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  #filter(Country=="Germany")%>%
+  group_by(Country)%>%
+  #summarise(Mean=mean(points))
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            n=n())%>%
+  mutate(Country = forcats::fct_reorder(Country, coef)) %>%
+
+  ggplot(aes(x=coef, y=Country)) + 
+  geom_point(aes(size=se),colour="blue",alpha=0.25)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  #facet_wrap(~prRange)
+
+```
+
+Putting the previous on a table:
+```{r}
+df%>%
+  #na.omit() %>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  #filter(Country=="Germany")%>%
+  group_by(Country)%>%
+  #summarise(Mean=mean(points))
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            n=n())%>%
+  mutate(Country = forcats::fct_reorder(Country, coef))%>%
+  datatable()
+
+```
+
+
+
+Can we interprate the coefficients of Figure \@ref(fig:coef) as a proxy for adherence? 
+It is tempting to do so. Countries with more negative coeficients - like Italy - responded very steeply to their Govt's recommendations. 
+On the other hand, there is no lag between the day that the policy index was announced and the day that the movement restriction was measured. 
+But of course, this begs the question: 'what is the appropriate time lag?' 
+Also, what is going on with S. Korea? 
+Can we really conclude that Koreans ignore their govt's directives? 
+I think it is more likely that we are observing a sophistication in measurement implementation. 
+Policies are becoming more targeted and people learn how to implement while still being able to maintain mobility. 
+Focusing on S. Korea again but this time, disaggregating Movement restriction:
+
+
+```{r SK, fig.cap="South Korea across different aspects of Movement."}
+
+
+dfl%>% 
+  filter(Country=="South Korea",Type!="StringencyIndex")%>%
+  ggplot(aes(x=StringencyIndex,y=Value))+
+  geom_point(col="black") +
+  geom_smooth()+
+  facet_wrap(~Type)+
+  scale_colour_brewer(palette = 'Set1')+
+  labs(y="Movement change")+
+  theme_bw()
+
+
+
+```
+
+Nope, according to Figure \@ref(fig:SK), South Korea is still a mystery...
+Maybe a measurement error from Oxford or Google? 
+I wonder how does CoronaNet's index look like for the same analysis...
+
+# With time
+
+This types of Figures look promising for our analysis. 
+The way the Oxford index is coded and the measurment units of Google allow us to plot 3 dimensions in a single figure. 
+
+```{r indmov, fig.cap="Development of Stringency Index over time while tracking Movement reduction(?) as a response."}
+
+
+
+
+dfl%>%
+  filter(!is.na(COL))%>%
+  filter(Type=="Movement"|Type=="StringencyIndex")%>%
+  group_by(Country)%>%
+  ggplot(aes(x=Date,y=Value,col=Type))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~Country)+
+  theme_bw()+
+    theme(legend.position="bottom")
+  
+  
+  
+
+```
+
+We can tell interesting stories given the spread of the bifurcation, the relative difference from the 0 line, etc.
+However, still, we have not decided on the lag. 
+This figure makes it clear that things are complicated when considring a continuous stringency index. 
+How do we interpret changes in movement on periods that there was no policy update? 
+There can be certain updates of the policy index that are ignored and others that are overly emphasized. 
+Countries that made the influential policy change early on might had seen a sudden movement adjustment which we might crowd out by equating (and averaging) with a plethora of other updates of the policy index that were ignored (as people were already at the desirable level of movement). 
+
+
+
+# Taking lags and differences
+
+If the variable that lags Movement response by one day is doing what we think it ought to be doing, we should expect that the correlation with the policy index to be more negative than when compared to the non-lagged Movement variable. 
+That is, we would expect that the policy has an effect the day after its announcement. 
+Of course, we know that this is not absolute. 
+Often announcements come as a sulmination of things that are already 'in the air'. 
+
+```{r}
+
+#if(!require(devtools)) install.packages("devtools")
+#devtools::install_github("kassambara/ggpubr")
+
+
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Non-lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+         
+ 
+
+
+
+```
+
+<!-- Impressive correlation. Is it the same across continent? Too long script don't run it. -->
+
+
+```{r include=FALSE}
+
+
+
+
+df%>%  
+  ggscatter(x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+            add = "reg.line",
+              color = "Continent", palette="jco", alpha=0.3, shape="Continent",
+              #shape = 1,
+              #label = "Vintage",
+              
+               conf.int = TRUE,
+              
+              title="Movement and Strigency Index - Non-lagged")+
+  stat_cor(aes(color = Continent), label.x = 3,digits=4,p.accuracy=0.001) 
+  
+         
+  
+
+
+
+
+```
+
+There is some interesting variation.
+
+
+What about the lagged version?
+
+
+```{r}
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement_lag_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+             
+              add = "reg.line",
+              title="Movement and Strigency Index - Lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+         
+  
+
+```
+
+Not as good in fact. Perhaps it is because of the way Google registers the observation period?
+I will check with a variable that lags the policy index instead. 
+So that the response in movement precedes it. 
+
+```{r}
+df%>%  
+  ggscatterhist(x="StringencyIndex", y="Movement_lead_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+Hmmmm.... so Movement correlates better with the lagged version of the index. 
+This is really shouldn't happen. 
+Let's get rid of 0s
+
+
+```{r}
+
+z<-
+df%>% 
+  filter(StringencyIndex!=0)
+  
+  ggscatterhist(z,x="StringencyIndex", y="Movement_lag_1d",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+
+
+```{r}
+
+
+  
+  ggscatterhist(z,x="StringencyIndex", y="Movement",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index - Lead",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+  
+
+```
+
+
+
+
+Let's consider first differences.
+
+```{r}
+
+df<-df%>%
+  mutate(DifMove=Movement-Movement_lag_1d)%>%
+  mutate(DifMoveLag=dplyr::lag(DifMove,1))%>%
+  mutate(DifPol=StringencyIndex-dplyr::lag(StringencyIndex,1))
+
+
+z<-df%>%
+  filter(StringencyIndex!=0)
+
+cor.test(df$DifMove,df$DifPol)
+cor.test(z$DifMove,z$DifPol)
+
+df%>%  
+  ggscatterhist(x="DifMove", y="DifPol",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index first differences - Non-lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+cor.test(z$DifMoveLag,z$DifPol)
+
+
+```
+
+
+```{r}
+
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+
+df%>%  
+  ggscatterhist(x="DifMoveLag", y="DifPol",
+              #size = "Population.density",
+              color = "blue",
+              alpha=0.3,
+              #shape = 1,
+              #label = "Vintage",
+              repel = F,
+               conf.int = TRUE,
+              cor.coef = TRUE,
+              fullrange = TRUE,
+              add = "reg.line",
+              title="Movement and Strigency Index first differences - Lagged",
+              add.params = list(color="black",fill = "lightgray"),
+              margin.params = list(colour="black",fill = "lightgray"),
+              cor.coeff.args = list(method = "pearson",label.x=0,label.y=-70,label.sep = "\n", size = 5, digits=4,p.accuracy=0.001))
+
+cor.test(df$DifMoveLag,df$DifPol)
+
+
+```
+
+
+Nothing too promising, especially in the lagged case. 
+
+
+
+
+
+```{r StCtrMove, fig.cap= "Measuring Movement-responsiveness of countries to policy index."}
+df%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  summarise(coef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            se=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            t_stat=coef/se)%>%
+  ungroup()%>%
+  mutate(Rank=dense_rank(desc(-coef)))%>%
+    datatable()%>%
+  formatRound(columns=c('coef','se','t_stat'),digits=4)
+            
+  
+
+
+
+
+
+```
+
+More negative coefficients imply that an increase in stringency reduces Movement. 
+Countries like Italy, Spain and France are in the top-10. 
+Countries like Sweden, Denmark and Norway are in the bottom-10. 
+So it looks promising. 
+South Korea is also in the bottom 10, with a coef. that is not sign. different than 0. 
+Weird...
+
+
+# Relation with Google and Oxford
+
+
+
+
+

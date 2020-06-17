@@ -1,10 +1,7 @@
-#q<-read.csv("OxCGRT_latest.csv")
-#saveRDS(q,"Oxf.rds")
+q<-read.csv("OxfordTracking/covid-policy-tracker-master/data/OxCGRT_latest.csv")
+saveRDS(q,"Oxf.rds")
 
-#see here: https://www.nber.org/papers/w27082 for paper
-#and here for data: (https://osf.io/3sn2k/)
-#I believe the data collection period was between 20/03 and 08/04. Or at least the one that they made available online and that I am currently working with.
-#They append data on government policy from Oxford:  https://www.bsg.ox.ac.uk/research/publications/variation-government-responses-covid-19 
+#Data on government policy from Oxford:  https://www.bsg.ox.ac.uk/research/publications/variation-government-responses-covid-19 
 
 
 Ox<-readRDS("OxfordTracking/covid-policy-tracker-master/data/Oxf.rds")%>%
