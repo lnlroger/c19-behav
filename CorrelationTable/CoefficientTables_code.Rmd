@@ -7,8 +7,8 @@ output:
     toc : true
     toc_float : true
 editor_options: 
-  chunk_output_type: console
   
+  chunk_output_type: console
 ---
 
 <style>
@@ -33,9 +33,10 @@ library("lubridate")
 #rm(list = ls())
 
 source("ImportLong.r")
+source("code/custom-functions.R")
 
 df2<-df%>%
-  dplyr::select(all_of(c(basic,GoogleVars,behavioural,covid,economy,Policy)))
+  dplyr::select(all_of(c(basic,GoogleVars,behavioural,covid,economy,Policy,Compliance)))
 
 
 
@@ -85,11 +86,15 @@ df3<-cr%>%
   dplyr::select(-StringencyIndex)
 
 c<-round(cor(df3,use="pairwise.complete.obs"),3)
-
+p <- cor.mtest(df3)
 
 DT::datatable(c)
 
-corrplot::corrplot(c, method="circle")
+corrplot::corrplot(c, method="color", p.mat = p, sig.level = 0.1,
+                   addCoef.col = "black", number.cex=0.65, number.digits = 1,
+                   insig = "blank",
+                   diag=FALSE, 
+                   type = "upper")
 
 #cor.test(lto$LongTerm,lto$Cor)  
 

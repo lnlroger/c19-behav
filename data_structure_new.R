@@ -66,7 +66,12 @@ source("Government_Gelfand/import_gelfand.R")
 
 source("EM-DAT/import_epidemics.R")
 
+# Import long run coefficients obtained from ARDL
+
+lr.coeffs <- read_rds("OxfordTracking/covid-policy-tracker-master/code/LongRunCoefficients_ARDL.rds")
+
 # Merge into single dataframes ----
+
 
 # Short version (pure cross-section)
 
@@ -85,7 +90,8 @@ datasets.to.merge.short <- list(mobility_short,
                           polityIV,
                           UNpop, 
                           hf,
-                          Gf_gov
+                          Gf_gov,
+                          lr.coeffs
                           )
 
 df_short <- Reduce(function(...) full_join(..., by='Country'), datasets.to.merge.short) %>%
@@ -119,7 +125,8 @@ datasets.to.merge.long <- list(mobility_weather_death,
                                polityIV,
                                UNpop,
                                hf,
-                               Gf_gov
+                               Gf_gov,
+                               lr.coeffs
                                )
 
 

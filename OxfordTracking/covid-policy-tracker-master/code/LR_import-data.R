@@ -49,7 +49,6 @@ df.use <- df %>%
          C7_Restrictions.on.internal.movement, C7_Flag,
          C8_International.travel.controls,
          StringencyIndex, StringencyIndexForDisplay, 
-         LegacyStringencyIndex, LegacyStringencyIndexForDisplay,
          IndexCoronaNet,
          Movement, 
          polity2, risktaking, patience, ROL,

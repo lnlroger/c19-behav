@@ -150,6 +150,8 @@ for (ctry in unique(df.ARDL$Country)) {
 
 rm(df.now, df.ARDL, model.ardl, ctry, lr.coefficient.ardl,p.ardl,q.ardl)
 
+write_rds(lr.coeffs, "LongRunCoefficients_ARDL.rds")
+
 # See if there's something going on with the coefficients
 lr.coeffs.covariates <- lr.coeffs %>%
   left_join(df.use) %>%
