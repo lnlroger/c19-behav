@@ -135,8 +135,8 @@ for (ctry in unique(df.ARDL$Country)) {
     filter(Country == ctry)
   
   # Run estimation
-  p.ardl <- 3 # Lags of independent variable
-  q.ardl <- 3 # Autoregressive lags
+  p.ardl <- 1 # Lags of independent variable
+  q.ardl <- 1 # Autoregressive lags
   model.ardl <- ardlDlm(formula = diff.Movement ~ diff.StringencyIndex, 
                         data = df.now,
                         p = p.ardl , q = q.ardl)
@@ -150,7 +150,7 @@ for (ctry in unique(df.ARDL$Country)) {
 
 rm(df.now, df.ARDL, model.ardl, ctry, lr.coefficient.ardl,p.ardl,q.ardl)
 
-write_rds(lr.coeffs, "LongRunCoefficients_ARDL.rds")
+#write_rds(lr.coeffs, "LongRunCoefficients_ARDL.rds")
 
 # See if there's something going on with the coefficients
 lr.coeffs.covariates <- lr.coeffs %>%

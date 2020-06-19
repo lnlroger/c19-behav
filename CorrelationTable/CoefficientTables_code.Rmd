@@ -82,8 +82,8 @@ df3<-cr%>%
   group_by(Country)%>%
   summarise_all(last)%>%
   dplyr::select_if(is.numeric)%>%
-  dplyr::select(COL:coef_simple)%>%
-  dplyr::select(-StringencyIndex)
+  dplyr::select(COL:coef_simple) #%>%
+# dplyr::select(-StringencyIndex)
 
 c<-round(cor(df3,use="pairwise.complete.obs"),3)
 p <- cor.mtest(df3)

@@ -18,5 +18,5 @@ GoogleVars<-c('retail_and_recreation_percent_change_from_baseline', 'grocery_and
 
 Policy<-c("StringencyIndex")
 
-Compliance <- "LongRunCoeff"
+Compliance <- c("LongRunCoeff_1","LongRunCoeff_2","LongRunCoeff_3")
 

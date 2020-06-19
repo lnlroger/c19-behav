@@ -68,7 +68,7 @@ source("EM-DAT/import_epidemics.R")
 
 # Import long run coefficients obtained from ARDL
 
-lr.coeffs <- read_rds("OxfordTracking/covid-policy-tracker-master/code/LongRunCoefficients_ARDL.rds")
+lr.coeffs <- read_rds("compliance/LongRunCoefficients_ARDL.rds")
 
 # Merge into single dataframes ----
 
