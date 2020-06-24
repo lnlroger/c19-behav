@@ -399,3 +399,55 @@ lr.coefficient.ardl
 * Taking first differences is necessary to avoid spurious correlations given the clearly non-stationary series
 * This does increase the importance of having a flexible lag structure.
 * One could contemplate introducing cointegration to the analysis, which would appropriately treat the series in levels.
+
+# Ceiling effect
+
+Another obstacle to estimating the relation between movement and stringency may result from very non-linear relationships, specifically if populations react very strongly to small increases in compliance, leaving little or no room for further reductions in movement following increaes in stringency.
+
+The figure below illustrates this: On the left panel, the slightest increase in stringency leads to a reduction in movement by ca. 100%, leading to a gross underestimation of 'compliance' as additional increases in stringency cannot possibly be accompanied by decreases in movement.
+
+![](compliance_eg.png)
+
+Before investigating solutions, let us try and get a sense of the scale of the problem by looking at the actual data.
+
+## Distribution of Movement variable
+
+Arguably, the problem is more pertinent where we have a lot of extreme values, that is, large reductions of mobility. We may get an idea by looking at the distribution of the movement variable; thin colorful lines are all countries in the sample, the thick line plots the distribution across all countries and days 
+
+```{r import long data, echo=FALSE, warning=FALSE}
+source("ImportLong_simul.R")
+
+df.real.plot <- df.real %>%
+  dplyr::select(all_of(basic),all_of(GoogleVars),all_of(Policy))
+
+ggplot(df.real.plot,aes(x = Movement)) +
+  geom_density(aes(colour = Country)) +
+  geom_density(size = 2) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+```
+
+It is fairly clear from this picture that very low values are rare - in a couple of countries, a few observations seem to hit -100% or values that are close to it, but looking at the global distribution this looks like a very rare instance.
+
+For these observations to be 'problematic' in the way we are discussing here, they should be associated with low values of stringency - this is when a small policy intervention almost maxes out the potential effect, falsely leading to the conclusion that the population isn't compliant as it cannot react to further interventions by moving even less.
+
+To this end, let's plot all Movement against all Stringency values:
+
+```{r movement stringency, echo=FALSE, warning=FALSE}
+
+ggplot(df.real.plot, aes(StringencyIndex,Movement)) +
+  geom_rect(aes(xmin = 0, xmax = 50, ymin = -100, ymax= -50), fill = "bisque") +
+  geom_point(alpha = 1/10) +
+  geom_hline(yintercept = -50) +
+  geom_vline(xintercept = 50) +
+  theme_bw()
+
+```
+
+The problem would supposedly be bigger if the 3rd quadrant was busy - which it isn't.
+
+All in all, I suppose the problem stemming from a 'ceiling effect' will have very little bearing on our results.
+
+
+
