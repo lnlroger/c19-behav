@@ -417,10 +417,10 @@ Arguably, the problem is more pertinent where we have a lot of extreme values, t
 ```{r import long data, echo=FALSE, warning=FALSE}
 source("ImportLong_simul.R")
 
-df.real.plot <- df.real %>%
+df.real <- df.real %>%
   dplyr::select(all_of(basic),all_of(GoogleVars),all_of(Policy))
 
-ggplot(df.real.plot,aes(x = Movement)) +
+ggplot(df.real,aes(x = Movement)) +
   geom_density(aes(colour = Country)) +
   geom_density(size = 2) +
   theme_bw() +
@@ -436,7 +436,7 @@ To this end, let's plot all Movement against all Stringency values:
 
 ```{r movement stringency, echo=FALSE, warning=FALSE}
 
-ggplot(df.real.plot, aes(StringencyIndex,Movement)) +
+ggplot(df.real, aes(StringencyIndex,Movement)) +
   geom_rect(aes(xmin = 0, xmax = 50, ymin = -100, ymax= -50), fill = "bisque") +
   geom_point(alpha = 1/10) +
   geom_hline(yintercept = -50) +
@@ -449,5 +449,82 @@ The problem would supposedly be bigger if the 3rd quadrant was busy - which it i
 
 All in all, I suppose the problem stemming from a 'ceiling effect' will have very little bearing on our results.
 
+# Estimate & forecast using real data
 
+In order to explore the validity of our measures faced with real data, we may engage in a small forecasting exercise: Estimate the parameters from actual Movement & Stringency series, and then use those parameters to fit a Movement series based on actual Stringency.
+
+A comprehensive exercise of this kind would apply criteria for model selection (chosing lag length etc.), but for now let's rather arbitrarily focus on ARDL(3,3).
+
+```{r estimate, echo=FALSE}
+
+p.now <- 3
+q.now <- 3
+
+df.real.diff <- df.real %>%
+  group_by(Country) %>%
+  mutate(diff.Movement = c(NA, diff(Movement)),
+         diff.StringencyIndex = c(NA, diff(StringencyIndex))) %>%
+  select(Country, Date, Movement, StringencyIndex, diff.Movement, diff.StringencyIndex) %>%
+  na.omit()
+
+list.forecast.collect <- list()
+collect.lr.coeffs <- data.frame(Country = unique(df.real.diff$Country),
+                                lr.coeff = NA)
+
+for (cty in unique(df.real.diff$Country)) {
+
+  df.now <- df.real.diff %>%
+    filter(Country == cty)
+    
+    
+  ardl.now <-ardlDlm(formula = diff.Movement ~ diff.StringencyIndex, 
+                       data = df.now[,-1],
+                       p = p.now , q = q.now)
+  
+  ardl.now$model$coefficients
+  
+  lr.coefficient.now <- sum(ardl.now$model$coefficients[c("diff.StringencyIndex.t",
+                                                           paste0("diff.StringencyIndex.",1:p.now))]) /
+    (1-sum(ardl.now$model$coefficients[paste0("diff.Movement.",1:q.now)]))
+  
+  
+  forecast.now <- forecast(ardl.now, df.now$diff.StringencyIndex, 
+                            h = length(df.now$diff.StringencyIndex))
+  
+  forecast.test.integrate <- diffinv(as.numeric(forecast.now$forecasts))
+  
+  df.now <- df.now %>%
+    mutate(Forecast = forecast.test.integrate[-1])
+  
+  list.forecast.collect[[cty]] <- df.now
+  collect.lr.coeffs[which(collect.lr.coeffs$Country == cty),"lr.coeff"] <- lr.coefficient.now
+    
+}
+
+df.forecasts <- bind_rows(list.forecast.collect)
+
+countries.to.plot <- c("United Kingdom", "United States", "Germany", "Greece", "Zimbabwe", "Sweden")
+
+df.plot <- df.forecasts %>%
+  pivot_longer(cols = c("Movement","StringencyIndex","Forecast"), names_to = "Variable") %>%
+  filter(Country %in% countries.to.plot)
+
+ggplot(df.plot, aes(Date, value, colour = Variable)) +
+  geom_line() +
+  theme_bw() +
+  facet_wrap(~Country)
+
+print("Long-run coefficients:")
+print(collect.lr.coeffs[which(collect.lr.coeffs$Country %in% countries.to.plot),])
+
+```
+
+Note: Estimation is carried out with the differenced series, but the plot shows the 'undifferenced' series, that is, the forecasts (which are in differences) are integrated to obtain a series in levels again.
+
+A few remarks on the above:
+
+* Most countries appear to have an upwards trend, that is, stringency staying the same, movement goes up (behavioural fatigue, I reckon). In the estimation, this is captured by the constant (*a constant in differences is a trend in levels).
+* The long-run coefficients (again, derived from the individual ARDL coefficients), to me, seem quite reflective of what is observed above
+* Other parameters, not displayed here, may also contain interesting information: constant (behavioural fatigue), contemporaneous parameter (immediacy of response)
+* In Sweden, it kind of sucks: Immediate thought is that stringency never crossed some critical threshold; and that trend dominates a lot, which might be related to it becoming summer, obviously a huge deal the more northern you are. This would call for adding a climate variable to 'clean' the data from this effect.
 
