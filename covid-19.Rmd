@@ -15,12 +15,10 @@ editor_options:
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
 
 
-library(tidyr)
-library(dplyr)
+library(tidyverse)
 library(stringr)
 library(lmerTest)
 library(stargazer)
-library(ggplot2)
 library(mfx)
 library(knitr)
 library(kSamples)

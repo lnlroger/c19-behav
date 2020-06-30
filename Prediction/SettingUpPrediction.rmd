@@ -1,0 +1,82 @@
+---
+  title: "Setting up prediction environment"
+author: "Orestis"
+date: "28/06/2020"
+output: 
+  bookdown::html_document2: 
+  toc : true
+toc_float : true
+editor_options: 
+  
+  chunk_output_type: console
+---
+  
+  <style>
+  p.caption {
+    font-size: 0.9em;
+    font-style: italic;
+    color: grey;
+    margin-right: 10%;
+    margin-left: 10%;  
+    text-align: center;
+  }
+</style>
+  
+  
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library("tidyverse")
+library("lubridate")
+
+#rm(list = ls())
+
+source("ImportLong.r")
+
+
+```
+
+# Split into two periods: increase and decrease of SI
+
+The following code, keeps the days of SI weakly increasing for every country.
+
+```{r}
+w1<-df%>%
+  filter(!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  mutate(day=row_number())%>%  ###Putting a counter for each row of each group
+  add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
+  arrange(Date)%>% 
+  mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
+  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  mutate(wave=ifelse(day<=fir,"first","second"))%>%
+  filter(wave=="first")%>%
+  ungroup()
+
+
+#Test
+w1%>%
+  group_by(Country)%>%
+  ggplot(aes(x=week,y=StringencyIndex))+
+  geom_line(size=1)+
+  facet_wrap(~Country)
+
+# df4<-df3%>%
+#   arrange(Country,Date)%>%
+#   dplyr::select(Country,n,wave1,StringencyIndex,Date,fir)
+
+
+```
+OK, it works. 
+
+
+# Next steps:
+ 
+1. calculate compliance coefs on first wave. 
+  1.1 different counties have different lengths of wave 1. How does that affect our analysis? Duration of wave 1 brings about differences in power but it is also behavioual factor.
+2. Create the coefficient table and a regression throwin in the kitchen sink. 
+  2.1 Can the target set be different for every country?
+
+

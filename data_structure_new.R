@@ -143,6 +143,6 @@ df_long<- Reduce(function(...) full_join(..., by=c('Country')), datasets.to.merg
 df_long<-merge(df_long,Ox,by=c("Country","Date"),all=T)
 
 
-write.csv(df_long,"df_covid_long.csv")
+#write.csv(df_long,"df_covid_long.csv")
 write_rds(df_long,"df_covid_long.rds")
 
