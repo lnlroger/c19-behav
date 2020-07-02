@@ -37,6 +37,11 @@ source("ImportLong.r")
 
 ```
 
+# Conceptual
+
+Can we use a linear (or log linear) model as the basis for forecasting? 
+For example, when it comes to forecasting new cases, researchers typically use variations of the SIR model. 
+
 # Split into two periods: increase and decrease of SI
 
 The following code, keeps the days of SI weakly increasing for every country.
@@ -49,8 +54,8 @@ w1<-df%>%
   add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
   arrange(Date)%>% 
   mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
-  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
-  mutate(fir=replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  mutate(fir=match(0,wave1)-1)%>%### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=tidyr::replace_na(fir,5))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
   mutate(wave=ifelse(day<=fir,"first","second"))%>%
   filter(wave=="first")%>%
   ungroup()

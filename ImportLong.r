@@ -1,8 +1,7 @@
 library(dplyr)
 
 
-df<-readRDS("df_covid_long.rds")%>%
-  filter(sub_region_1=="")  ###taking the country level average 
+df<-readRDS("df_covid_long.rds")
 
 
 basic<-c("Date","week","Country","Continent")

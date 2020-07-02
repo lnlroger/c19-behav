@@ -14,7 +14,7 @@ editor_options:
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
 
-
+library(plyr)
 library(tidyverse)
 library(stringr)
 library(lmerTest)
@@ -45,13 +45,16 @@ rm(list = ls())
 source("ImportLong.r")
 
 
-#https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
-#df corresponds to the short version of the data, where we keep only the last observed date by Google. 
-#dfl corresponds to the long version of the data, where we have day by day observations for Google and for the weather.
-#The weather starts recording from 22-01-2020 while Google from mid Feb. 
-#In the short version we take average temperatures and the last day of Google. 
+q<-df%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  summarise(SimpleCoef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
+            SimpleSE=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
+            Cor=cor.test(StringencyIndex,Movement)$estimate[[1]])%>%
+  ungroup()
 
+df<-merge(df,q,by='Country',all=TRUE)
 
 
 
@@ -59,9 +62,75 @@ source("ImportLong.r")
  # filter(Popular==1)%>%
   #dplyr::select(Country)
 
+df_avg<-df%>%
+ filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  summarise_at(vars(-c(total_deaths,total_cases)),mean,na.rn=TRUE)%>%
+  ungroup()
+
+df_other<-df%>%
+   filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  summarise(total_deaths=last(total_deaths),total_cases=last(total_cases),LogDeath=(log(last(total_deaths)+1)),LogCases=log(last(total_cases)+1),MaxSI=max(StringencyIndex,na.rm=TRUE))%>%
+  ungroup()
+
+df_short<-merge(df_avg,df_other,by="Country",all=T)  
+
+
+#Focusing on the first wave only
+w1<-df%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement))%>%
+  group_by(Country)%>%
+  mutate(day=row_number())%>%  ###Putting a counter for each row of each group
+  add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
+  arrange(Date)%>% 
+  mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
+  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=tidyr::replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  mutate(wave=ifelse(day<=fir,"first","second"))%>%
+  filter(wave=="first")%>%
+  ungroup()%>%
+  arrange(Country,Date)
 
 
 
+#Break up w1 by country, then fit specified model to each piec and return a list
+models<-dlply(w1,'Country',function(df)
+  lm(Movement~StringencyIndex,data=df))
+
+#apply coef to each model and return a data frame
+wq<-ldply(models,coef)
+names(wq)<-c("Country","Intercept","Compliance")
+#Print summary of each model
+#l_ply(models, summary, .print = TRUE)
+
+
+
+
+
+w1_avg<-w1%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  dplyr::summarise_at(vars(-c(total_deaths,total_cases)),mean,na.rn=TRUE)%>%
+  ungroup()
+
+w1_other<-w1%>%
+    filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  group_by(Country)%>%
+  dplyr::summarise(total_deaths=last(total_deaths),
+            total_cases=last(total_cases),
+            LogDeath=log(last(total_deaths)+1),
+            LogCases=log(last(total_cases)+1),
+            MaxSI=max(StringencyIndex))
+
+w1_short<-merge(w1_avg,w1_other,by="Country",all=T)  
+
+w1_short<-merge(w1_short,wq,by="Country",all=T)
+
+
+vars_basic<-c("log_GDP_pc","Unemployment","Pop_Density_sq_mi","Age_65up","Death_disease")
+vars_briq<-c("risktaking","patience","negrecip","trust","posrecip","altruism")
+vars_hof<-c("COL","PDI","MAS","UAI")
 
 ```
 
@@ -108,21 +177,9 @@ Disclaimer: this is not an attempt to identify causal relations. This is just a 
 ```{r mobility, fig.cap="Movement restriction across countries"}
 
 
-df_short<-df%>%
-  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
-  group_by(Country)%>%
-  summarise_all(mean,na.rn=TRUE)%>%
-  ungroup()
-
-df_last<-df%>%
-  group_by(Country)%>%
-  summarise(LogDeath=(log(last(total_deaths)+1)),LogCases=log(last(total_cases)+1))%>%
-  ungroup()
-
-df_short<-merge(df_short,df_last)  
 
 df_short%>%
- # filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+ filter(!is.na(Movement),!is.na(StringencyIndex))%>%
   #mutate(Country=as.factor(Country))%>%
   #group_by(Country)%>%
   mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
@@ -130,12 +187,16 @@ df_short%>%
   ggplot()+
   geom_point(aes(x=Country,y=Movement),colour="blue")+
   coord_flip()+
+  #geom_vline(xintercept=0,colour="black")+
 
  # scale_y_discrete()+
   #scale_x_discrete()+
   labs(x = 'Countries',y = "Average Movement")+
   theme_bw()
   #theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
 
 
 ```
@@ -148,34 +209,49 @@ Movement probably captures two (latent for the moment) variables: a. governments
 Although the source is reliable, it's prob. good to keep in mind that there are strong selection issues: the variable captures the behaviour of people who use smartphones and have allowed Google to track their location. 
 
 
-I present below the results of two regressions. 
-I label the first one: "Behavioural" (table \@ref(tab:tab-model-table)) because it includes behavioural variables. 
 
-
+So, what factors affect change in movement? Here is a regression that avoids variables that are related to Covid statistics (like Stringency Index, number of new cases, etc.).
 
 ```{r }
 
 
-vars_intr<-c("log_GDP_pc","ROL","Unemployment","Pop_Density_sq_mi","risktaking","patience","Death_disease")
 
-intr<-formula(paste("Movement ~", paste(vars_intr, sep = "", collapse = "+")))
-intr_mob<-lm(data=df_short,intr)
-tab_model(intr_mob, title = "Determinants of Movement: 'Factors independent of Covid era'")
+
+basic<-formula(paste("Movement ~", paste(vars_basic, sep = "", collapse = "+")))
+basic_mob<-lm(data=df_short,basic)
+
+briq<-formula(paste("Movement ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
+
+hof<-formula(paste("Movement ~", paste(c(vars_basic,vars_briq,"ROL",vars_hof), sep = "", collapse = "+")))
+hof_mob<-lm(data=df_short,hof)
+
+tab_model(basic_mob,briq_mob,hof_mob)
+
 
 
 
 
 ```
+
+Three nested models: basic, with BRIQ/ROL and with hofstede's variables. 
+The adjusted R^2 can be improved by discarding variables with high p-values but at this stage I chose to include everything. 
+Including other variables drops significantly the number of total observations. 
+Many coefficients do not make sense (e.g. risk taking, patience). 
+Therefore, either the beh.variables are worthless or, taking the average Movement across the entire period is meaningless. 
+Frankly, without accounting for weather, we are not addressing one of the elephants in the room. 
+
+
+Let's take the average for the period when policies were restrictive. 
+That is, let's exclude the days that the stringency index went down. 
 
 
 ```{r }
+basic_mob<-lm(data=w1_short,basic)
+briq_mob<-lm(data=w1_short,briq)
+hof_mob<-lm(data=w1_short,hof)
 
-
-vars_best<-c("log_GDP_pc","ROL","Unemployment","Pop_Density_sq_mi","risktaking","patience","Death_disease","StringencyIndex","LogDeath","LogCases","Age_65up")
-
-best<-formula(paste("Movement ~", paste(vars_best, sep = "", collapse = "+")))
-best_mob<-lm(data=df_short,best)
-tab_model(best_mob, title = "Determinants of Movement: 'Factors related to Covid era'")
+tab_model(basic_mob,briq_mob,hof_mob)
 
 
 
@@ -183,259 +259,121 @@ tab_model(best_mob, title = "Determinants of Movement: 'Factors related to Covid
 ```
 
 
+Same story, only with lower adjusted R_squared. 
 
+# Stringency Index
 
-
-Death_disease is a peculiar case for two reasons.^[I found the data for this variable in World Bank's data set and it tracks: "Cause of death, by communicable diseases and maternal, prenatal and nutrition conditions (% of total)".] 
-First, the sign suggests that countries with higher %'s of communicable diseases (i.e. one that is spread from one person to another through a variety of ways that include: contact with blood and bodily fluids; breathing in an airborne virus; or by being bitten by an insect), tend to restrict their movement less during this pandemic. 
-Second, including this variable crowds out the effect of GDP_pc. 
-Perhaps this variable correlates too strongly with GDP_pc so the effect that is picking up is misleading. 
-Figure \@ref(fig:GDPFlu) suggests that this is more likely the case. 
-
-
-```{r GDPFlu, fig.cap="GDP_pc across Death by flu"}
-
-
-df%>%
-  
- #mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
-
-  ggplot(aes(x=log(GDP_pc),y=Death_disease),colour="blue")+
-  #geom_vline(xintercept=-12.7)+
-  #geom_hline(yintercept=-48.6)+
-  #geom_point(aes(size=before_Google,colour=Lock),alpha=0.4)+
-  #guides(colour="legend")+
-  stat_smooth()+
-
-
- # scale_y_discrete()+
-  scale_x_discrete()+
-  labs(x = 'GDP_pc',y = "Death by communicable disease (% total)")+
-  theme_bw()+
-  geom_text_repel(aes(x=log(GDP_pc),y=Death_disease,label=Country))+
- #geom_text(x=-7.5,y=5,label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
-  #geom_text(x=-16,y=-90,label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
-
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  #facet_wrap(~Lock)
-
-
-```
-
-Goals:
-
-* Find a proxy variable for how much a country likes to touch, hug and kiss each other. 
-* What crowds out ROL? 
-
-
-
-
-
-
-
-# Death and total cases. 
-
-```{r LogDeathpc, fig.cap="Death by country"}
-
-
-df%>%
-  filter(Death_pc>0,Population>1000000)%>%
- mutate(Country = forcats::fct_reorder(Country,log(Death_pc))) %>%
+```{r}
+df_short%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  #mutate(Country=as.factor(Country))%>%
+  #group_by(Country)%>%
+  mutate(Country = forcats::fct_reorder(Country,StringencyIndex)) %>%
 
   ggplot()+
-  geom_point(aes(x=Country,y=log(Death_pc)),colour="blue")+
+  geom_point(aes(x=Country,y=StringencyIndex),colour="blue")+
+  coord_flip()+
+  #geom_vline(xintercept=0,colour="black")+
 
  # scale_y_discrete()+
   #scale_x_discrete()+
-  labs(x = 'Countries',y = "Log_Death_pc")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-
-```
-
-
-What does restriction of movement do to total cases of death? 
-Hard to answer this question. 
-
-Figure \@ref(fig:MobDeath) plots the relation between Total Deaths per capita and Movement. 
-The relation is endogenous. In principle, one would expect that lower movelemt -> less deaths. 
-But of course, it may be that the countries that took the lock-down more seriously are the ones that were afflicted the most (higher death toll). 
-I estimate the variable before_Google, that counts how many deaths were officially confirmed before Google's observation period began. 
-I estimate this variable as: 
-
-$$
-log(\frac{(Deaths(before23/02/2020)+1)}{Population})
-$$
-
-I add +1 in the numerator, because there are many countries with 0 reported deaths before google, and logging leads to -Inf. 
-Not sure if this is the right approach, maybe I should let them drop out. 
-
-
-
-
-```{r MobDeath, fig.cap="Movement restriction and Death"}
-
-
-df%>%
-  filter(TotalDeaths>1)%>%
-  filter(!is.na(Movement))%>%
-  #filter(!is.na(COL))%>%
- mutate(CaseLog=scale(log(TotalCases)))%>%
-mutate(DeathLog=scale(log(TotalDeaths)))%>%
-mutate(Google_1=Google+1)%>%
-mutate(Google_1pc=Google_1/Population)%>%
-mutate(before_Google=log(Google_1pc))%>%
-  mutate(xint=median(log(TotalDeaths/Population)))%>%
-  mutate(yint=median(Movement))%>%
-  
-  
-# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
-
-  ggplot(aes(x=log(TotalDeaths/Population),y=Movement),colour="blue")+
-  geom_vline(xintercept=-11.99)+
-  geom_hline(yintercept=-46)+
-  geom_point(aes(colour=Lock),alpha=0.9,size=2)+
-  #guides(colour="legend")+
-  stat_smooth()+
-
-
- # scale_y_discrete()+
-  #scale_x_discrete()+
-  labs(x = 'log_TotalDeaths',y = "Movement",color="Lockdown")+
-  theme_bw()+
-  geom_text_repel(aes(x=log(TotalDeaths/Population),y=Movement,label=Country))+
- geom_text(x=3,y=10,col="red",label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
-  geom_text(x=-1.6,y=-90,col="blue",label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
- geom_text(x=-1.6,y=10,col="black",label=paste0("Date:",last(df$Date)), vjust = "inward", hjust = "inward")
-
-  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  #facet_wrap(~Lock)
-
-
-```
-
-
-
-
-It's interesting to look at those 4 quadrants. 
-First, notice that quadrants 1 and 3 (low deaths) are typically comprised of countries that are less likely to be accurately reporting deaths (limited interest and/or medical supplies). 
-Perhaps we can control for that with a proxy for health-services (e.g. hospital beds per capita). 
-
-Is there a story about the second quadrant? 
-Nordic countries seem to dominate this quadrant of high-movement & high death rate. 
-Is this is a story of climate or can we fit an explanation with a political science twist (e.g. Individualistic vs. Collective countries)? 
-See relevant section. 
-
-Moreover, how do we control for the direction of causality? 
-Edit: the more recent Mobility reports no longer produce a negative relation between movement and death. 
-Probably because it takes some time for the quarantine to have an effect on deaths. 
-It's unlikely that reducing movement increases total deaths. 
-More likely, the countries that were stricter at reducing mobility were the ones that were mostly affected by Covid.
-I create the before_Google variable that tracks down the number of deaths attributed to covid-19 before the observation period started. 
-We would expect that this control will reduce the effect of mobility on total deaths. 
-
-
-
-```{r regSmpl, fig.cap="Determinants of Death_toll: Simplistic" ,results='asis'}
-
-
-
-smpl<-lm(data=df,Log_Death_pc~Movement)
-
-
-tab_model(smpl)
-
-
-
-
-```
-
-
-```{r regCntrl, fig.cap="Determinants of Death_toll: add before_Google control" ,results='asis'}
-
-r1<-df%>%
-  mutate(Google_1=Google+1)%>%
- mutate(Google_1pc=Google_1/Population)%>%
-  mutate(before_Google=log(Google_1pc))%>%
-  
-  filter(!is.na(Movement))
-
-
-ctrl<-lm(data=r1,Log_Death_pc~Movement+before_Google)
-tab_model(ctrl)
-
-```
-
-The coefficient of Movement is reduced but not nearly as much as I would have thought...
-Maybe the amount of deaths before Google's observation period is not a good predictor. 
-
-
-
-## Dynamic movement restriction and death
-
-In Figure \@ref(fig:MobDeathLock) the line type changes after the date that the country imposed its lockdown. 
-It's a bit messy still but I like the premise of the idea. 
-Maybe we can tidy it up a bit. 
-
-```{r MobDeathLock, fig.cap="Reaction to LockDown"}
-
-
-
-dfl%>%
- # filter(TotalDeaths>1000)%>%
-  filter(!is.na(Movement))%>%
-  filter(!is.na(Lock))%>%
-  arrange(Country,as.Date(Date))%>%
-  mutate(InLock=as.factor(ifelse(as.Date(Date)<as.Date(DateLockDown),0,1)))%>%
-  filter(!is.na(InLock))%>%
- filter(Country=="Greece"|Country=="Germany")%>%
-  #filter(!is.na(COL))%>%
- mutate(CaseLog=scale(log(TotalCases)))%>%
-mutate(DeathLog=scale(log(TotalDeaths)))%>%
-
-# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
-  #group_by(Country, Region)%>%
-  ggplot(aes(x=as.Date(Date),y=Movement,colour=Country,linetype=InLock))+
-  geom_line(size=1) +
-   
-  #scale_colour_brewer(palette = 'Set1')+
-  #guides(colour="legend")
- 
-  scale_color_discrete(guide = FALSE)+
-  
-  #geom_vline(xintercept=DateLockDown)+
-  #geom_hline(yintercept=-46)+
-  #geom_point(aes(colour=Lock),alpha=0.9,size=2)+
-  #guides(colour="legend")+
-  facet_wrap(~Region)+
-  #scale_color_brewer()+
-
-
- # scale_y_discrete()+
-  #scale_x_discrete()+
-  labs(x = 'Date',y = "Movement",color="Lockdown")+
+  labs(x = 'Countries',y = "Average Stringency Index")+
   theme_bw()
-
-  geom_text_repel(aes(x=Date,y=Movement,label=Country))
-
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
 
 
-# Flattening the curve
+What makes a gvt more prone to apply more restrictive measures? 
+Once again, I focus on non-covid related parameters. 
 
-Just started playing around with dynamic trends.
+Let's consider first, the average SI across the entire period. 
+
+```{r }
+basic<-formula(paste("StringencyIndex ~", paste(vars_basic, sep = "", collapse = "+")))
+basic_mob<-lm(data=df_short,basic)
+
+briq<-formula(paste("StringencyIndex ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
+
+hof<-formula(paste("StringencyIndex ~", paste(c(vars_basic,vars_briq,"ROL",vars_hof), sep = "", collapse = "+")))
+hof_mob<-lm(data=df_short,hof)
+
+tab_model(basic_mob,briq_mob,hof_mob)
+
+
+```
+
+Higher SI correlates: 
+
+* positively with: GDP_pc, Population density, risk taking, positive reciprocity. 
+* negatively with: patience, altruism, prop of age 65+, ROL, Collectivism and uncertainty avoidance.
+
+This analysis makes much more sense.
+I particularly like the negative correlation with ROL. 
+This means that gvts that anticipate lower adherence, overdo it. 
+
+
+# Compliance
+
+```{r}
+df_short%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
+  #mutate(Country=as.factor(Country))%>%
+  #group_by(Country)%>%
+  mutate(Country = forcats::fct_reorder(Country,LongRunCoeff_3)) %>%
+
+  ggplot()+
+  geom_point(aes(x=Country,y=LongRunCoeff_3),colour="blue")+
+  coord_flip()+
+  #geom_vline(xintercept=0,colour="black")+
+
+ # scale_y_discrete()+
+  #scale_x_discrete()+
+  labs(x = 'Countries',y = "Long Run Coef_3")+
+  theme_bw()
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Let's interpret the long run ceof as compliance. 
+
+
+```{r }
+basic<-formula(paste("LongRunCoeff_3 ~", paste(vars_basic, sep = "", collapse = "+")))
+basic_mob<-lm(data=df_short,basic)
+
+briq<-formula(paste("LongRunCoeff_3 ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
+
+hof<-formula(paste("LongRunCoeff_3 ~", paste(c(vars_basic,vars_briq,"ROL",vars_hof), sep = "", collapse = "+")))
+hof_mob<-lm(data=df_short,hof)
+
+tab_model(basic_mob,briq_mob,hof_mob)
+
+
+```
+
+When we don't include the Hofstede variables, we find some interesting relations:
+
+* More risk-seeking societies are less compliant
+* More trusting ones are more compliant
+* More altruistic societies are more compliant
+
+Though, the fact that societies that are more reciprocal are also more likely to not comply, spoil the mix. 
+
+
+# Death and cases
+
 
 
 ```{r trend, fig.cap="Death curve"}
 
-dfl%>%
+df%>%
   mutate(Date=as.Date(Date))%>%
-  mutate(label = if_else(Date == max(Date,na.rm=T), as.character(Country), NA_character_)) %>%
+  mutate(label = if_else(Date == max(Date,na.rm=T) & total_deaths>10000, as.character(Country), NA_character_)) %>%
 
-  filter(TotalDeaths>1000,Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
+  #filter(TotalDeaths>1000,Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
   group_by(Country)%>%
   ggplot(aes(x = Date, y = total_deaths,group=Country, color=Country)) + 
   geom_line(size=1) +
@@ -452,573 +390,190 @@ dfl%>%
                   na.rm = TRUE)
 
 
-
-
-```
-
-# Change in Movement by Regime Type
-
-The figure below plots changes in movement as reported by google around the time of the lockdown (Note: Change in movement is still relative to google's baseline).
-
-```{r movement.regime, fig.cap="Change in Movement Relative to Lockdown Date"}
-# Average response by regime type
-
-df.plot.mov <- df %>%
-  mutate(regime = ifelse(polity2 <= -6,"autocracy",
-                         ifelse(polity2 <= 5,"anocracy",
-                                ifelse(polity2 > 5,"democracy",NA))))
-
-dfl.plot.mov <- dfl %>%
-  left_join(dplyr::select(df.plot.mov,regime,Country))
-
-movement.regime <- dplyr::select(dfl.plot.mov,Country,Date,Movement,regime,DaysSinceLockdown) %>%
-  group_by(regime,DaysSinceLockdown) %>%
-  summarise(mean.movement = mean(Movement,na.rm = TRUE)) %>%
-  filter((DaysSinceLockdown > -50) & (DaysSinceLockdown <76))
-
-
-plot.movement.regime <- ggplot(data = movement.regime, mapping = aes(DaysSinceLockdown,mean.movement,group = regime)) +
-  geom_line(aes(colour = regime)) +
-  geom_vline(xintercept = 0) +
-  theme_minimal()
-plot.movement.regime
-```
-
-Across regime types (PolityIV), movement was noticeably reduced before the imposition of formal lockdowns. This might be because of informal appeals, citizens' own initiative or fear, or weaker policy measures that didn't qualify as a fully-fledged lockdown.
-
-While all curves seem to move together quite neatly (no difference across regimes), there is a niticeable fivergence after something like 45 days, where movement in democracies picks up much more than autocracies.
-I do however suspect that this is based on a very small sample at that point, as not many countries have been in a lockdown for that long.
-
-NB: We might want to start coding lifting/relaxation of lockdowns.
-
-# Collectivism
-
-From the LSE article: 
-
-
-> [...] having evolved as an adaptation to material insecurity, including pathogen prevalence, and other pressures that required avoiding individualistic behaviours that threatened the group welfare or challenges that required collective action. That is, collectivist cultures may have evolved a suite of behaviours that are well adapted to epidemics: less mouth-to-mouth romantic kissing and physical affection in general, more vigilance of others, even in-group members, social learning, conformity, obedience to authority, avoidance orientation, and so on. 
->> `r tufte::quote_footer('--- Muthukrishna, 2020') [https://blogs.lse.ac.uk/businessreview/2020/04/22/long-read-cultural-evolution-covid-19-and-preparing-for-whats-next/]
-
-```{r COLTC, fig.cap="Collectivism by Total Cases"}
-
 df%>%
-  mutate(CaseLog=scale(log(TotalCases/Population)))%>%
-  mutate(GDP_pc=log(GDP_pc))%>%
-  #mutate(COL=100-IDV)%>%
-  ggscatterhist(x="ROL", y="COL",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson",  label.sep = "\n", size = 6),
-             # xlab = "Collectivism",
-              margin.params = list(fill = "lightgray")
-              
-)
+  mutate(Date=as.Date(Date))%>%
+  mutate(label = if_else(Date == max(Date,na.rm=T) & total_deaths_per_million>200, as.character(Country), NA_character_)) %>%
 
-
-
-```
-
-
-```{r COLTD, fig.cap="Collectivism by Total Death"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths/Population)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="COL", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Collectivism",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-#ggarrange(c1,c2)
-```
-
-
-```{r COLMov, fig.cap="Collectivism by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="COL", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Collectivism",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-So... collectivism seems to be really powerfull...
-Though not as powerful as in the LSE paper (I think R=-065 in their case). 
-But the LSE article uses CaseLog "Trajectory". Not sure how they calculate this. 
-It is also adjusted for population. 
-
-Let's do the Movement - Death figure again but this time for those countries that we have a score for collectivism.
-
-
-
-```{r MobDeathCOL, fig.cap="Movement restriction and Death - Collectivism"}
-
-
-df%>%
-  filter(TotalDeaths>1)%>%
-  filter(!is.na(Movement))%>%
-  filter(!is.na(COL))%>%
- mutate(CaseLog=scale(log(TotalCases)))%>%
-mutate(DeathLog=scale(log(TotalDeaths)))%>%
-mutate(Google_1=Google+1)%>%
-mutate(Google_1pc=Google_1/Population)%>%
-mutate(before_Google=log(Google_1pc))%>%
-  mutate(xint=median(DeathLog))%>%
-  mutate(yint=median(Movement))%>%
+  #filter(TotalDeaths>1000,Date>as.Date("01/03/2020",format="%d/%m/%y"))%>%
+  group_by(Country)%>%
+  ggplot(aes(x = Date, y = total_deaths_per_million,group=Country, color=Country)) + 
+  geom_line(size=1) +
+  #scale_colour_brewer(palette = 'Set1')+
+  #guides(colour="legend")
+ 
+  scale_color_discrete(guide = FALSE)+
   
   
-# mutate(Country = forcats::fct_reorder(Country,-Movement)) %>%
-
-  ggplot(aes(x=DeathLog,y=Movement),colour="blue")+
-  geom_vline(xintercept=-0.09)+
-  geom_hline(yintercept=-46)+
-  geom_point(aes(colour=COL>median(COL)),alpha=0.9,size=2)+
-  #guides(colour="legend")+
-  stat_smooth()+
+   theme_minimal()+
+  theme(text = element_text(size=15))+
+  geom_label_repel(aes(label = label),
+                  nudge_x = 1,
+                  na.rm = TRUE)
 
 
- # scale_y_discrete()+
-  #scale_x_discrete()+
-  labs(x = 'log_TotalDeaths',y = "Movement",color="Collectivism")+
-  theme_bw()+
-  geom_text_repel(aes(x=DeathLog,y=Movement,label=Country))+
- geom_text(x=3,y=10,col="red",label="High Death Rate - High Movement", vjust = "inward", hjust = "inward")+
-  geom_text(x=-1.6,y=-90,col="blue",label="Low Death Rate - Low Movement", vjust = "inward", hjust = "inward")+
- geom_text(x=-1.6,y=10,col="black",label=paste0("Date:",last(df$Date)), vjust = "inward", hjust = "inward")
 
-  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  #facet_wrap(~Lock)
+
+
 
 
 ```
 
-# Patience
+## Non covid correlates
 
+What correlates with death and total cases (that is not related to covid)?
 
-```{r PatienceTC, fig.cap="Patience by Total Cases"}
+Death:
+```{r}
+basic<-formula(paste("LogDeath ~", paste(vars_basic, sep = "", collapse = "+")))
+basic_mob<-lm(data=df_short,basic)
 
-df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="patience", y="CaseLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Patience",
-              margin.params = list(fill = "lightgray")
-              
-)
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
 
+hof<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL",vars_hof), sep = "", collapse = "+")))
+hof_mob<-lm(data=df_short,hof)
+
+tab_model(basic_mob,briq_mob,hof_mob)
 
 ```
 
 
-```{r PatienceTD, fig.cap="Patience by Total Death"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="patience", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Patience",
-              margin.params = list(fill = "lightgray")
-              
-)
+* Share of older folks DOES NOT correlate with death from covid - strange...
+* wealthier countries have more deaths (not sure if this is intuitive)
+* Countries that obey Rule of Law have lower cases
 
+In general though, the results are weak and R^2 is bad. 
+
+Cases: 
+
+```{r}
+basic<-formula(paste("LogCases ~", paste(vars_basic, sep = "", collapse = "+")))
+basic_mob<-lm(data=df_short,basic)
+
+briq<-formula(paste("LogCases ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
+
+hof<-formula(paste("LogCases ~", paste(c(vars_basic,vars_briq,"ROL",vars_hof), sep = "", collapse = "+")))
+hof_mob<-lm(data=df_short,hof)
+
+tab_model(basic_mob,briq_mob,hof_mob)
+
+```
+
+* More or less the same as with total deaths. Probably because the two (deaths and cases) are so highly correlated.
+
+Can we quickly justify the role of Movement, as measured by Google and as aggregated by us (average of everything but Residential)?
+
+```{r}
+
+tab_model(lm(data=df_short,LogDeath~Movement))
 
 ```
 
 
-```{r patienceMove, fig.cap="Patience by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="patience", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Patience",
-              margin.params = list(fill = "lightgray")
-              
-)
+```{r}
 
+tab_model(lm(data=df_short,LogCases~Movement))
 
 ```
 
-And patience is not bad either...
+Not really...
+What if we add the most important controls? 
 
 
-# Risk Taking
+```{r}
+
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Movement"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
 
 
-```{r RiskTC, fig.cap="Risk Taking by Total Cases"}
 
-df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="risktaking", y="CaseLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "RiskTaking",
-              margin.params = list(fill = "lightgray")
-              
-)
+tab_model(briq_mob)
 
+```
+
+Marginally...
+
+
+## Death and compliance 
+
+
+```{r}
+
+tab_model(lm(data=df_short,LogDeath~LongRunCoeff_3))
 
 ```
 
 
-```{r RiskTD, fig.cap="Collectivism by Total Death"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="risktaking", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Collectivism",
-              margin.params = list(fill = "lightgray")
-              
-)
+```{r}
 
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","LongRunCoeff_3"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
+
+
+
+tab_model(briq_mob)
 
 ```
 
 
-```{r RiskMove, fig.cap="Risk Taking by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="COL", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Risk Taking",
-              margin.params = list(fill = "lightgray")
-              
-)
 
+What about a simple coefficient (no lags)?
+
+
+```{r}
+
+tab_model(lm(data=df_short,LogDeath~SimpleCoef))
+
+#tab_model(lm(data=df_short,LogDeath~Cor))
 
 ```
 
 
-Risk taking... not so great. 
+```{r}
+
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","SimpleCoef"), sep = "", collapse = "+")))
+briq_mob<-lm(data=df_short,briq)
 
 
-# Rule of Law
 
+tab_model(briq_mob)
 
-```{r ROLTC, fig.cap="Rule of Law by Total Cases"}
+```
 
-df%>%
-  mutate(CaseLog=scale(log(TotalCases)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="ROL", y="CaseLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .9, label.sep = "\n", size = 6),
-              xlab = "Rule of Law",
-              margin.params = list(fill = "lightgray")
-              
-)
+Better. What if we focus this simpler coefficient to wave 1?
+First of all, Movement, affects fundamental indexes (like death) mostly in wave 1. 
+Proof:
 
+```{r}
+tab_model(lm(data=w1_short,LogDeath~Movement))
+
+tab_model(lm(data=df_short,LogDeath~Movement))
 
 ```
 
 
-```{r ROLTD, fig.cap="Rule of Law by Total Death"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="ROL", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -2.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Rule of Law",
-              margin.params = list(fill = "lightgray")
-              
-)
+```{r}
 
+tab_model(lm(data=w1_short,LogDeath~Compliance))
+
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,"ROL","Compliance"), sep = "", collapse = "+")))
+briq_mob<-lm(data=w1_short,briq)
+
+
+
+tab_model(briq_mob)
 
 ```
 
-
-```{r ROLMove, fig.cap="Rule of Law by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="ROL", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -3.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Rule of Law",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-Rule of Law... meh...
-
-
-# Government efficiency
-
-From (Gelfand et al., 2020)[https://psyarxiv.com/m7f8a/]. 
-
->We measured government efficiency using the World Bank’s
-Government Efficiency Index, which assesses the public sector’s performance in managing and
-regulating the political economy (see https://bit.ly/34lXAT9). According to this 5 metric, efficient
-governments score highly on 5 dimensions: they are efficient in spending public revenue, they do
-not place strong compliance burdens on the private sector, they are able to efficiently settle legal
-and judicial disputes in the private sector, they are receptive to challenges from the private
-sector, and they offer transparent information about changes in government policies and
-10 regulations affecting private sector activities.
->> Gelfand et al., 2020
-
-
-```{r GovTC, fig.cap="Gov Efficiency by Total Cases."}
-
-df%>%
-  mutate(CaseLog=scale(log(TotalCases/Population)))%>%
-  ggscatterhist(x="Government.efficiency", y="CaseLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .9, label.sep = "\n", size = 6),
-             # xlab = "Government.effectiveness.index",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-Wait... is this what one should expect? 
-More efficient gvts lead to higher Cases?! 
-
->Nations with efficient governments and tight cultures have been most effective at limiting COVID-19’s infection rate and mortality 5 likelihood, and this interaction of cultural tightness and government efficiency is robust to controlling for
-underreporting of cases, economic development, inequality, median age, population density, and
-authoritarianism. 
-
-No... 
-Sure, they talk about likelihoods, but there sth seems off here...
-
-By the way, if you use instead the "Govenrment.efficiency" score that is just the same with "Government.effectiveness.index", the relation almost disappears... 
-
-```{r GovTD, fig.cap="Government effectiveness by Total Deaths"}
-df%>%
-  filter(TotalDeaths>0)%>%
-  mutate(DeathLog=scale(log(TotalDeaths)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Government.efficiency", y="DeathLog",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -2.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Government.effectiveness.index",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-
-```{r GovMove, fig.cap="Government effectiveness by Movement"}
-df%>%
- # filter(Movement)%>%
-  #mutate(MoveLog=scale(log(Movement)))%>%
-  mutate(COL=100-IDV)%>%
-  ggscatterhist(x="Government.efficiency", y="Movement",
-              #size = "Population.density",
-              #color = "blacl",
-              #shape = 1,
-              label = "Country",
-              repel = T,
-              add = "reg.line",
-              add.params = list(fill = "lightgray"),
-              conf.int = TRUE,
-              cor.coef = TRUE,
-              fullrange = TRUE,
-              cor.coeff.args = list(method = "pearson", label.x = -1.5, label.y = .3, label.sep = "\n", size = 6),
-              xlab = "Government effectiveness index",
-              margin.params = list(fill = "lightgray")
-              
-)
-
-
-```
-
-Similarly with movement. We seem to be getting the opposite story of what these papers seem to claim their indexes are doing...
-
-
-# Cultural Tightness
-
->We measured cultural tightness using the index from Gelfand and
-colleagues (1), who measured tightness through 6 items, including “There are many social norms
-that people are supposed to abide by in this country,” and “In this country, if someone acts in an
-inappropriate way, others will strongly disapprove.” This measure was originally gathered by
-15 Gelfand (1) across 33 nations, and then expanded to 57 nations by Eriksson and colleagues (4)
-using the same procedure. The measure captures the strength of norms in a nation and the
-tolerance for people who violate norms (see supplemental materials for more information).
-
-
-We no longer have that - due to mergergs prob. Doesn't really matter. The next line reads the previous conclusion from that analysis.
+Finally, we get an interesting result for a change. Higher compliance, leads to fewer deaths. 
+But, the effect disappears when we include other behavioural variables... 
+We should probably estimate a LongRunCoef for wave 1. 
+Hopefully, we get something even stronger. 
+If not, then it's worth asking ourselves if it's worth pursuing a fancy model for "compliance". 
 
 
 
-Once again, opposite results of the ones presented in the Gelfand paper...
-
-
-
-# Action points
-
-* Find the country (region) - level individualism/ collectivism (see Hofstede, Gelfland, etc.) & integrate.
-Liter* Distance from lockdown in days.
-* glmnet selects the variables that together offer the best predictive power. In the interesting model we see what I would think is somewhat counter-intuitive variables (like patience:in, lokc:out). Let's run the models suggested by glmnet and compare. 
-  * Lock is actually out for a technical reason which we should prob. fix. 
-* Finish 
-ature review on individual and collectivism
-* Integrate the behavioural data and strictness of lock-down?
-  * Data structure: let's make sure it works. 
-  * careful in integrating the strictness of lock-down. Multiconearity (do they take into account the Movement reduction for eg?). 
-  * Orestis: behavioural data and strictness of lock-down, collectivism indexes
-  * Lio: Polity4, UN-Population...emdat.be
-  
-* What is the Death_Disease about? 
-  
 
 
 
