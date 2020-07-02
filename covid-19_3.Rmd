@@ -44,18 +44,19 @@ rm(list = ls())
 
 source("ImportLong.r")
 
+df2<-df%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement))
+  
+  
 
 
-q<-df%>%
-  filter(!is.na(Movement),!is.na(StringencyIndex))%>%
-  group_by(Country)%>%
-  summarise(SimpleCoef=summary(lm(Movement~StringencyIndex))$coefficients[2,1],
-            SimpleSE=summary(lm(Movement~StringencyIndex))$coefficients[2,2],
-            Cor=cor.test(StringencyIndex,Movement)$estimate[[1]])%>%
-  ungroup()
+#Break up w1 by country, then fit specified model to each piec and return a list
+models<-dlply(df2,'Country',function(df)
+  lm(Movement~StringencyIndex,data=df))
 
-df<-merge(df,q,by='Country',all=TRUE)
-
+#apply coef to each model and return a data frame
+q<-ldply(models,coef)
+names(q)<-c("Country","Intercept","Compliance")
 
 
 #breaks<-df%>%
@@ -75,7 +76,7 @@ df_other<-df%>%
   ungroup()
 
 df_short<-merge(df_avg,df_other,by="Country",all=T)  
-
+df_short<-merge(df_short,q,by="Country",all=T)
 
 #Focusing on the first wave only
 w1<-df%>%
@@ -95,11 +96,11 @@ w1<-df%>%
 
 
 #Break up w1 by country, then fit specified model to each piec and return a list
-models<-dlply(w1,'Country',function(df)
+models2<-dlply(w1,'Country',function(df)
   lm(Movement~StringencyIndex,data=df))
 
 #apply coef to each model and return a data frame
-wq<-ldply(models,coef)
+wq<-ldply(models2,coef)
 names(wq)<-c("Country","Intercept","Compliance")
 #Print summary of each model
 #l_ply(models, summary, .print = TRUE)
@@ -259,7 +260,7 @@ tab_model(basic_mob,briq_mob,hof_mob)
 ```
 
 
-Same story, only with lower adjusted R_squared. 
+Same story, only with lower adjusted R_squared in the Briq model (middle column) and better hofstede (3rd column). 
 
 # Stringency Index
 
@@ -357,10 +358,12 @@ tab_model(basic_mob,briq_mob,hof_mob)
 When we don't include the Hofstede variables, we find some interesting relations:
 
 * More risk-seeking societies are less compliant
-* More trusting ones are more compliant
-* More altruistic societies are more compliant
+* More trusting and more altruistic ones are more compliant. Perhaps more aged societies are also more compliant. 
 
 Though, the fact that societies that are more reciprocal are also more likely to not comply, spoil the mix. 
+Also, what's up with the adjusted R^2 in the third model?!
+I haven't looked at the long run coefficient for wave 1, as I need to calculate it again. 
+It would be nice to define a function that does this automatically, like I did the coefficients of the simple regressin. 
 
 
 # Death and cases
@@ -438,11 +441,11 @@ tab_model(basic_mob,briq_mob,hof_mob)
 ```
 
 
-* Share of older folks DOES NOT correlate with death from covid - strange...
+* Share of older folks correlates with death from covid 
 * wealthier countries have more deaths (not sure if this is intuitive)
+* Risk aversion correlates with less death (nice) and higher patience (and altruism) correates with more death (not so nice)
 * Countries that obey Rule of Law have lower cases
 
-In general though, the results are weak and R^2 is bad. 
 
 Cases: 
 
@@ -477,23 +480,29 @@ tab_model(lm(data=df_short,LogCases~Movement))
 
 ```
 
-Not really...
+Sort of.. 
 What if we add the most important controls? 
 
 
 ```{r}
 
+briq_NoMove<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
+briq_mob_NoMove<-lm(data=df_short,briq_NoMove)
+
 briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Movement"), sep = "", collapse = "+")))
 briq_mob<-lm(data=df_short,briq)
 
+briq_SI<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Movement","StringencyIndex"), sep = "", collapse = "+")))
+briq_mob_SI<-lm(data=df_short,briq_SI)
 
 
-tab_model(briq_mob)
+tab_model(briq_mob_NoMove,briq_mob,briq_mob_SI)
 
 ```
 
-Marginally...
-
+Stronger result. We are also able to explain a lot of the variation in the data..! Like 60%... Is this normal?
+Even without Movement, R^2 is 50%. It is peculiar given that no variable is drawn from Covid era... 
+Moreover, including the Stringency Index in the regression does not improve R2 too much. 
 
 ## Death and compliance 
 
@@ -516,14 +525,13 @@ tab_model(briq_mob)
 
 ```
 
-
-
+The long run coeff. does not predict much. Though, it is in the right direction.
 What about a simple coefficient (no lags)?
 
 
 ```{r}
 
-tab_model(lm(data=df_short,LogDeath~SimpleCoef))
+tab_model(lm(data=df_short,LogDeath~Compliance))
 
 #tab_model(lm(data=df_short,LogDeath~Cor))
 
@@ -532,7 +540,7 @@ tab_model(lm(data=df_short,LogDeath~SimpleCoef))
 
 ```{r}
 
-briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","SimpleCoef"), sep = "", collapse = "+")))
+briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Compliance"), sep = "", collapse = "+")))
 briq_mob<-lm(data=df_short,briq)
 
 
@@ -541,7 +549,7 @@ tab_model(briq_mob)
 
 ```
 
-Better. What if we focus this simpler coefficient to wave 1?
+Better in the simple model but its effect is also crowded out by controls. What if we focus this simpler coefficient to wave 1?
 First of all, Movement, affects fundamental indexes (like death) mostly in wave 1. 
 Proof:
 
@@ -566,8 +574,7 @@ tab_model(briq_mob)
 
 ```
 
-Finally, we get an interesting result for a change. Higher compliance, leads to fewer deaths. 
-But, the effect disappears when we include other behavioural variables... 
+Though again, it is being crowded out eventually. 
 We should probably estimate a LongRunCoef for wave 1. 
 Hopefully, we get something even stronger. 
 If not, then it's worth asking ourselves if it's worth pursuing a fancy model for "compliance". 
