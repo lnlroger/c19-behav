@@ -1,9 +1,11 @@
 # mobility_long: daily data
 # mobility_short: mobility on latest available date
+
 library(countrycode)
 
 mobility <- read.csv("Google/Global_Mobility_Report.csv")%>%
-  filter(sub_region_1=="")%>%
+  rename(City=sub_region_1)%>%
+  filter(City=="")%>%
   mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline",
                                 "grocery_and_pharmacy_percent_change_from_baseline",
                                 "parks_percent_change_from_baseline", 
@@ -13,10 +15,12 @@ mobility <- read.csv("Google/Global_Mobility_Report.csv")%>%
   mutate(Country=countrycode(country_region_code,'iso2c','country.name')) %>%
   mutate(Country=replace(Country, is.na(country_region_code), 'Namibia'))
 
-
+cities<-read.csv("Google/Cities.csv")
 
 mobility_regional <- read.csv("Google/Global_Mobility_Report.csv")%>%
- # filter(sub_region_1=="")%>%
+  rename(City=sub_region_1)%>%
+  filter(!City=="")%>%
+  #filter(sub_region_1%in%cities$City1|sub_region_1%in%cities$City2)%>%
   mutate(Movement=rowMeans(.[,c("retail_and_recreation_percent_change_from_baseline",
                                 "grocery_and_pharmacy_percent_change_from_baseline",
                                 "parks_percent_change_from_baseline", 

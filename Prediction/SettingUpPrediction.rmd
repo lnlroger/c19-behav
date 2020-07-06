@@ -47,18 +47,20 @@ For example, when it comes to forecasting new cases, researchers typically use v
 The following code, keeps the days of SI weakly increasing for every country.
 
 ```{r}
+#Focusing on the first wave only
 w1<-df%>%
-  filter(!is.na(StringencyIndex))%>%
+  filter(!is.na(StringencyIndex),!is.na(Movement))%>%
   group_by(Country)%>%
   mutate(day=row_number())%>%  ###Putting a counter for each row of each group
   add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
   arrange(Date)%>% 
   mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
-  mutate(fir=match(0,wave1)-1)%>%### first occurence of a 0-value - 1 to discard the 0. 
-  mutate(fir=tidyr::replace_na(fir,5))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=tidyr::replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
   mutate(wave=ifelse(day<=fir,"first","second"))%>%
   filter(wave=="first")%>%
-  ungroup()
+  ungroup()%>%
+  arrange(Country,Date)
 
 
 #Test
