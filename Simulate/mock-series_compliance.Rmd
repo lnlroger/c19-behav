@@ -503,7 +503,7 @@ for (cty in unique(df.real.diff$Country)) {
 
 df.forecasts <- bind_rows(list.forecast.collect)
 
-countries.to.plot <- c("United Kingdom", "United States", "Germany", "Greece", "Zimbabwe", "Sweden")
+countries.to.plot <- c("United Kingdom", "United States", "Germany", "Greece", "Zimbabwe", "South Korea")
 
 df.plot <- df.forecasts %>%
   pivot_longer(cols = c("Movement","StringencyIndex","Forecast"), names_to = "Variable") %>%
