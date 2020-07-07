@@ -113,15 +113,21 @@ source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
 
 # Long version (daily data)
 
-days_mobility<-merge(mobility,days,by=c('Country','Date'),all=T)
+days_mobility_prefs<-merge(merge(mobility,days,by=c('Country','Date'),all=T),social_prefs,by='Country',all=T)
 
-datasets.to.merge.long <- list(days_mobility,
+#days_mobility_prefs_regional<-merge(merge(mobility_regional,days,by=c('Country','Date'),all=T),social_prefs_city,by=c('Country'),all=T)
+## cannot allocate vector of 156Mb...
+
+
+datasets.to.merge.long <- list(#days_mobility_prefs_regional,
+                               days_mobility_prefs,
                                lockdown,
                                wvs,
                                wb,
                                elections,
                                rol,
-                               social_prefs,
+                               #social_prefs,
+                               #social_prefs_city,
                                countries,
                                #time_short,
                                polityIV,
@@ -145,6 +151,6 @@ df_long<- Reduce(function(...) full_join(..., by=c('Country')), datasets.to.merg
 df_long<-merge(df_long,Ox,by=c("Country","Date"),all=T)
 
 
-#write.csv(df_long,"df_covid_long.csv")
 write_rds(df_long,"df_covid_long.rds")
+#write_rds(df_long,"df_covid_long_cities.rds")
 

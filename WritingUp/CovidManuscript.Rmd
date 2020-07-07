@@ -1,0 +1,125 @@
+---
+title             : 'A new behavioral index for compliance'
+shorttitle        : 'Mobility responsiveness during Covid-19'
+author: 
+  - name          : 'Orestis Kopsacheilis'
+    affiliation   : '1'
+    corresponding : yes
+    address       : 'Room C28 Sir Clive Granger, University Park, Nottingham, NG7 2RD, UK'
+    email         : 'Orestis.Kopsacheilis@nottingham.ac.uk'
+  - name          : 'Lionel Roger'
+    affiliation   : '2'
+affiliation:
+  - id            : '1'
+    institution   : 'School of Economics, University of Nottingham'
+  - id            : '2'
+    institution   : 'Overseas Development Institute'
+abstract: |
+  
+# keywords          : 'environmental policy, carbon taxes, behavioral economics, nudges'
+# bibliography      : ['bibliography.bib']
+# csl               : nature.csl
+header-includes:
+   - \usepackage{setspace, appendix, placeins}
+   - \usepackage[justification=centering]{caption}
+   - \usepackage{float}
+   - \usepackage{natbib}
+   - \floatplacement{figure}{H} 
+   - \newtheorem{finding}{Finding}
+   - \newcommand{\onote}[1]{{\color{blue} {(\sf Orestis:} {\sl{#1}}     {\sf )}}}
+   - \newcommand{\vnote}[1]{{\color{green} {(\sf Lionel:} {\sl{#1}}     {\sf )}}}
+figsintext        : yes
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+lineno            : no
+mask              : no
+class             : 'doc'
+output:
+  papaja::apa6_pdf
+editor_options: 
+  chunk_output_type: console
+---
+
+
+---
+bibliography: ["Covid19.bib"]
+biblio-style: "apalike"
+link-citations: true
+---
+
+
+
+
+# Introduction
+
+
+\onote{One possible motivation is to frame this paper as an introduction of a new behavioural measure, let's call it 'compliance' for the moment. Unlike other behavioural measures, like Briq, this is derived from actual behaviour. We treat Covid-19 as an exogenous shock that allows us to track real-world behaviour, namely, responsiveness to Policy (but also, to each country's respective urgency).
+We use this index to cross-validate other behavioural measures such as Briq and ROL.
+The high-stakes (life or death) of the situation and the attention it has received world-wide make this index all the more meaningful. Therefore, I am thinking to open the intro with a famous quote, carrying the message that the true character (i.e. real behaviour/ preferences) come out clearest at times of adversity. Here are some candidate quotes: }
+
+> The ultimate measure of a man is not where he stands in moments of comfort and convenience, but where he stands at times of challenge and controversy.
+`r tufte::quote_footer('---  Martin Luther King')`
+
+
+> "True character is revealed in the choices a human being makes under pressure - the greater the pressure, the deeper the revelation, the truer the choice to the character's essential nature.”
+`r tufte::quote_footer('---  Robert Mckee')`
+
+
+> "Crisis Doesn't Build Character, It Reveals It."
+`r tufte::quote_footer('---  James Lane Allen')`
+
+> "A person's true nature is revealed at times of the reatest adversity."
+`r tufte::quote_footer('---  Daisaki Ikeda')`
+
+
+Several papers take existing behavioural measures as regressors. 
+We take a different approach. 
+We construct a behavioural measure from real world, contemporeneous data (i.e. reactions to the current crisis) and cross-validate it using a mix of economic indices but also behavioural and cultural indexes that have been elicited prior to Covid. 
+
+Among the existant behavioural measures we consider, the Global Preference Survey (GPS), by @falk2018global , is of key importance. 
+
+Problems with papers that use GPS: 
+* Most papers use it at the national level instead of at the city level. @alfaro2020social, is a noticeable exception. This can be problematic as 'The data reveal substantial heterogeneity in preferences across countries, **but even larger within-country heterogeneity**.'
+* These papers do not offer a validation of these indexes in light of these extraordinaty circumstances. These indices were elicited at times very different. Is behaviour consistent or are people behaving differently when the stakes are higher? Also, are survey data consistent with real-life economic behaviour. 
+    * Several papers to cite here advocating in both directions
+
+
+
+
+
+
+
+
+
+## Data description
+
+Our data sources are:
+
+* Mobility reports from Google (city-level)
+* Briq Behavioural Measures (city-level)
+* Weather (city-level)
+* Economic indices from the WB
+* 
+
+
+Increasing the level of our data-granularity is a good thing. 
+Even if we cluster errors at the country-level, we still get a boost on power. 
+Moreover, it does not matter if we do not get city-level data for all variables of interest. 
+For example, @alfaro2020social, use city-level mobility data but country-level death and total cases data. 
+We probably should do the same. 
+Although city level data can be found, I am not sure how reliable it will be. 
+Moreover, it would require a great deal of manual labour as the 3 daily updated sources: John Hopkins, ECDC and WHO, only offer country-level info. 
+We do, however, have city-level info for: Movement and Weather (where it really makes little sense to aggregate). 
+The stringency index (SI) is a tricky one. 
+For 90% of our data, country-level and city-level SI coincide. 
+There are 3 countries where this is an exception, however. Namely, US, Canada and Australia. 
+I guess it won't be too difficult to adjust out SI for the cities in our data set from those countries. 
+We could even contact Oxford and ask them to do it for us - they really should not treat these countries as a unity. Maybe they have already done so - we should check.  
+
+
+
+# Literature Review
+
+
+

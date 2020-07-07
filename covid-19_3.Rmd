@@ -130,6 +130,7 @@ w1_short<-merge(w1_short,wq,by="Country",all=T)
 
 
 vars_basic<-c("log_GDP_pc","Unemployment","Pop_Density_sq_mi","Age_65up","Death_disease")
+vars_basic_GDP<-c("Unemployment","Pop_Density_sq_mi","Age_65up","Death_disease")
 vars_briq<-c("risktaking","patience","negrecip","trust","posrecip","altruism")
 vars_hof<-c("COL","PDI","MAS","UAI")
 
@@ -487,14 +488,17 @@ What if we add the most important controls?
 ```{r}
 
 briq_NoMove<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL"), sep = "", collapse = "+")))
-briq_mob_NoMove<-lm(data=df_short,briq_NoMove)
+briq_mob_NoMove<-lm(data=w1_short,briq_NoMove)
 
 briq<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Movement"), sep = "", collapse = "+")))
-briq_mob<-lm(data=df_short,briq)
+briq_mob<-lm(data=w1_short,briq)
 
 briq_SI<-formula(paste("LogDeath ~", paste(c(vars_basic,vars_briq,"ROL","Movement","StringencyIndex"), sep = "", collapse = "+")))
-briq_mob_SI<-lm(data=df_short,briq_SI)
+briq_mob_SI<-lm(data=w1_short,briq_SI)
 
+
+briq_SI<-formula(paste("LogDeath ~", paste(c(vars_basic_GDP,vars_briq,"ROL","Movement","StringencyIndex"), sep = "", collapse = "+")))
+briq_mob_SI<-lm(data=df_short,briq_SI)
 
 tab_model(briq_mob_NoMove,briq_mob,briq_mob_SI)
 
