@@ -1,0 +1,5 @@
+x<-read.csv("weather_dir.csv")
+file.list<-as.character(x$Parent.Directory)
+df.list_big <- lapply(paste0("https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/2020/",file.list), read.csv)
+d_big<-do.call("rbind", df.list_big)
+#write.csv(d_big,"WeatherJan-Jun-2020.csv")

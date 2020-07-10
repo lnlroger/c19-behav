@@ -1,0 +1,92 @@
+---
+title: "City level report"
+author: "Orestis"
+date: "09/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+
+library(tidyverse)
+library(stringr)
+library(lmerTest)
+library(stargazer)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(ggpubr)
+library(lubridate)
+
+options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
+
+
+
+source("ImportLong.r")
+source("import_mobility.r")
+
+df_short<-df%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex),!is.na(risktaking))%>%
+  group_by(Country)%>%
+  summarise(n())
+
+```
+
+# Data description
+
+We use city level info from 3 data sets:
+
+* Mobility reports from Google
+* Behavioural data from GPS (aka Global Preference Survey aka Briq)
+* Weather
+
+
+How many observations do we gain or lose? 
+
+First, notice that we lose some countries from Movement alone, as not every country has city-level info. 
+Specifically:
+
+```{r}
+z<-mobility%>%
+  anti_join(mobility_regional,by="Country")%>%
+  group_by(Country)%>%
+  summarise(n())
+
+print(z$Country)
+
+```
+
+Of those `r nrow(z)` countries, South Korea is the only really big pitty... 
+But, so far, this is not as bad. 
+First, some of these countries we lose anyway from merging Google with GPS. 
+
+```{r}
+z2<-df%>%
+  filter(!is.na(Movement),!is.na(StringencyIndex),!is.na(risktaking))%>%
+  anti_join(mobility_regional,by="Country")%>%
+  group_by(Country)%>%
+  summarise(n())
+
+print(z2$Country)
+
+```
+
+Specifically, we are only really losing `r nrow(z2)` (S. Korea is still one of them though). 
+Overall, from `r nrow(df_short)`, we are left with 53 countries. 
+
+Second, we can always go back and include those missing countries. 
+
