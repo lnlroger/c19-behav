@@ -23,7 +23,9 @@ ardl.summary <- data.frame(Country = unique(df.ARDL$Country),
                            p.best = rep(NA,length(unique(df.ARDL$Country))),
                            q.best = rep(NA,length(unique(df.ARDL$Country))),
                            bg.pval.best = rep(NA,length(unique(df.ARDL$Country))),
-                           bic.best = rep(NA,length(unique(df.ARDL$Country))))
+                           bic.best = rep(NA,length(unique(df.ARDL$Country))),
+                           r2.best = rep(NA,length(unique(df.ARDL$Country))),
+                           r2.adj.best = rep(NA,length(unique(df.ARDL$Country))))
                           
 bg.matrix <- matrix(data = rep(NA,max.q*max.p), 
                     nrow = max.p, ncol = max.q,
@@ -82,6 +84,7 @@ for (ctry in unique(df.ARDL$Country)) {
   lr.coefficient.best <- sum(model.ardl$model$coefficients[c("diff.StringencyIndex.t",paste0("diff.StringencyIndex.",1:p.best))]) /
     (1-sum(model.ardl$model$coefficients[paste0("diff.Movement.",1:q.best)]))
   
+  sum.model.ardl <- summary(model.ardl)
   
   this.row <- which(ardl.summary$Country == ctry)
   ardl.summary[["LongRunCoefficient"]][this.row] <- lr.coefficient.best
@@ -89,6 +92,9 @@ for (ctry in unique(df.ARDL$Country)) {
   ardl.summary[["q.best"]][this.row] <- q.best
   ardl.summary[["bg.pval.best"]][this.row] <- bg.matrix[best.model]
   ardl.summary[["bic.best"]][this.row] <- bic.matrix[best.model]
+  ardl.summary[["r2.best"]][this.row] <- sum.model.ardl$r.squared
+  ardl.summary[["r2.adj.best"]][this.row] <- sum.model.ardl$adj.r.squared
+  
   
   print(paste0("Country ",i," out of ", length(unique(df.ARDL$Country)),
                " (", ctry, ")"))
