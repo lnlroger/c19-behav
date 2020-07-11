@@ -13,6 +13,9 @@ source("Weather_new/ImportWeather.r")
 source("Google/import_mobility.R")
 source("Briq/import_social-prefs.r")
 source("Cities/ImportCities.r")
+source("ImportLong.r")
+
+
 
 
 #Goal 1: merge google_cities with gps_cities while minimising data loss
@@ -21,11 +24,18 @@ source("Cities/ImportCities.r")
 #To make matching easier, I start by creating a subset of google's mobility_regional that uses only the intersection with GPS. 
 
 interGoogle_GPS<-short_mob%>%
-  filter(Country %in% gps_coord$Country)
+  filter(Country %in% gps_coord$Country)%>%
+  group_by(Country)%>%
+  mutate(number=n())
+
+n_groups(interGoogle_GPS) #Good, back to 53, though, we prob. don't have city-level info for Croatia's GPS.
 
 interGPS_Google<-gps_coord%>%
-  filter(Country %in% mobility_regional$Country)
+  filter(Country %in% mobility_regional$Country)%>%
+  group_by(Country)%>%
+  mutate(number=n())
 
+n_groups(interGPS_Google)
 
 
 #South is the city's min lat, North is the city's max lat. West is min long and East max long. 
@@ -37,22 +47,24 @@ GpsGoo<-
                    by=c("lat"="SouthHalf", "lat"="NorthHalf","lon"="WestHalf","lon"="EastHalf"),
                    match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
 
+#Gets rid of double entries
 GpsGoog<-GpsGoo%>%
   group_by(lat,lon)%>%
-  summarise_all(first)
+  summarise_all(first)%>%
+  ungroup()%>%
+  group_by(Country.x)
 
 
-q<-GpsGoog%>%
-  group_by(Country.x)%>%
-  #rename(Country=Country.x)
-  summarise(n())
-
-q$Country<-q$Country.x
-
-qz<-anti_join(q,interGoogle_GPS,by="Country")
+n_groups(GpsGoog)
 
 
+# Problem: locations like "East Middlands" from GPS, do not have coordinates because Google does not recognise them. 
+# Let's list all those with NA in lon or lat
 
+missing<-interGPS_Google%>%
+  filter(is.na(lat))
+
+#Nothing is missing anymore..Good!
 
 US<-GpsGoog%>%
   filter(Country.x=="United States")
@@ -73,9 +85,7 @@ Gr<-GpsGoog%>%
 UK<-GpsGoog%>%
   filter(Country.x=="United Kingdom")
 
-c<-GooGps%>%
-  group_by(Country.x)%>%
-  summarise(n())
+
 
 
 #Goal 2: add weather for every city
@@ -132,7 +142,7 @@ GPS<-
                 by=c("Lat"="Lat_min_5", "Lat"="Lat_max_5","Lon"="Lon_min_5","Lon"="Lon_max_5"),
                 match_fun=list(`>=`, `<=`,`>=`,`<=`))
 
-#API: AIzaSyDxWm-ZFyrkOjBpiNxUvZZaDheN0PP-tsQ 
+# 
 
 #Merging with Google Movement 
 ## When Movement is the left df, merging takes forever...and concludes "Error: cannot allocate vector of size 240.1 Mb" 
