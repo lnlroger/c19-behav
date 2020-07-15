@@ -59,6 +59,7 @@ n_groups(GpsGoog)
 
 
 # Problem: locations like "East Middlands" from GPS, do not have coordinates because Google does not recognise them. 
+# Fixed it manually in import_mobility.r
 # Let's list all those with NA in lon or lat
 
 missing<-interGPS_Google%>%
@@ -66,33 +67,53 @@ missing<-interGPS_Google%>%
 
 #Nothing is missing anymore..Good!
 
-US<-GpsGoog%>%
-  filter(Country.x=="United States")
-
-Can<-GpsGoog%>%
-  filter(Country.x=="Canada")
-
-Ger<-GpsGoog%>%
-  filter(Country.x=="Germany")
-
-Zimb<-GpsGoog%>%
-  filter(Country.x=="Zimbabwe")
-
-Gr<-GpsGoog%>%
-  filter(Country.x=="Greece")
 
 
-UK<-GpsGoog%>%
-  filter(Country.x=="United Kingdom")
 
 
 
 
 #Goal 2: add weather for every city
 
+#We will use the short_weather so that merging is more flexible.
+#Remember to eventually expand by day. 
+
+
+GpsGoogWeather<-
+  fuzzy_inner_join(weather_short,GpsGoog, 
+                   by=c("LATITUDE"="SouthHalf", "LATITUDE"="NorthHalf","LONGITUDE"="WestHalf","LONGITUDE"="EastHalf"),
+                   match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
+
+temCity<-GpsGoogWeather%>%
+  group_by(Country.x,City.x)%>%
+  summarise_all(first)
+
+#Why do temCity and tempCoord have different lengths?
+
+tempCoord<-GpsGoogWeather%>%
+  group_by(LATITUDE,LONGITUDE)%>%
+  summarise_all(first)
+
+n_groups(GpsGoogWeather)
+#52 countries instead of 53.. oh well!
+
+
+
+#Gets rid of double entries
+GpsGoog<-GpsGoo%>%
+  group_by(lat,lon)%>%
+  summarise_all(first)%>%
+  ungroup()%>%
+  group_by(Country.x)
+
+
+
+
 
 #Add population info
 
+#Adding info on population. This is found in "city" data frame. 
+#I plan to do a fuzzy_join by South_half, etc. 
 
 
 
