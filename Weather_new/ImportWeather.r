@@ -1,4 +1,8 @@
 #weather<-read.csv("Weather_new/WeatherJan-Jun-2020.csv")
+library(tidyverse)
+library(lubridate)
+library(countrycode)
+
 weather<-readRDS("Weather_new/weather.rds")%>%
   filter(!is.na(LATITUDE))%>%
   mutate(Lat_min_1=LATITUDE-0.1,
@@ -16,16 +20,22 @@ weather<-readRDS("Weather_new/weather.rds")%>%
   mutate(MAX=na_if(MAX,9999.90))%>%
   mutate(MIN=na_if(MIN,9999.90))%>%
   mutate(PRCP=na_if(PRCP,99.990))%>%
+  mutate(PRCP_Cm=1.54*PRCP)%>%
   mutate(SNDP=na_if(SNDP,999.9))%>%
   mutate(Dewp_C=(DEWP-32)*5/9)%>%
-  mutate(Fog=as.numeric(substr(weather$FRSHTT, 1, 1)))%>%
-  mutate(Rain=as.numeric(substr(weather$FRSHTT, 2, 2)))%>%
-  mutate(Snow=as.numeric(substr(weather$FRSHTT, 3, 3)))%>%
-  mutate(Hail=as.numeric(substr(weather$FRSHTT, 4, 4)))%>%
-  mutate(Thunder=as.numeric(substr(weather$FRSHTT, 5, 5)))%>%
-  mutate(Tornado=as.numeric(substr(weather$FRSHTT, 6, 6)))%>%
-  mutate(CountryCode=str_sub(weather$NAME,-2))%>%
-  mutate(Country=countrycode(CountryCode,origin='iso2c',destination='country.name'))
+  mutate(Fog=as.numeric(substr(FRSHTT, 1, 1)))%>%
+  mutate(Rain=as.numeric(substr(FRSHTT, 2, 2)))%>%
+  mutate(Snow=as.numeric(substr(FRSHTT, 3, 3)))%>%
+  mutate(Hail=as.numeric(substr(FRSHTT, 4, 4)))%>%
+  mutate(Thunder=as.numeric(substr(FRSHTT, 5, 5)))%>%
+  mutate(Tornado=as.numeric(substr(FRSHTT, 6, 6)))%>%
+  mutate(CountryCode=str_sub(NAME,-2))%>%
+  #mutate(Country=countrycode(CountryCode,origin='iso2c',destination='country.name'))
+  mutate(Country=countrycode(CountryCode,origin='fips',destination='country.name'))
+
+
+
+
   
 #Not to be trusted with country names - there are several non-matches. Surprising that IC, EZ, etc. are not matched unambiguously...
 
@@ -41,7 +51,7 @@ weather<-readRDS("Weather_new/weather.rds")%>%
 
 weather_short<-weather%>%
   group_by(LATITUDE,LONGITUDE)%>%
-  summarise(Elevation=mean(ELEVATION),Station=first(STATION),StationName=first(NAME),Temp=mean(TEMP),
+  summarise(Country=first(Country),Elevation=mean(ELEVATION),Station=first(STATION),StationName=first(NAME),Temp=mean(TEMP),
             AvgDewPoint=mean(DEWP),AvgSLPressure=mean(SLP),AvgVisib=mean(VISIB),AvgWndSpeed=mean(WDSP),AvgMxWndSpeed=mean(MXSPD),
             AvgGust=mean(GUST),AvgPrcp=mean(PRCP),
             AvgSnowDep=mean(SNDP),AvgFog=mean(Fog),AvgRain=mean(Rain),AvgSnow=mean(Snow),AvgHail=mean(Hail),AvgThunder=mean(Thunder),AvgTornado=mean(Tornado))

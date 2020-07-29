@@ -1,12 +1,11 @@
 ---
 title: "City level report"
 author: "Orestis"
-date: "09/07/2020"
+date: "17/07/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
 
@@ -32,17 +31,40 @@ library(naniar)
 library(ggpubr)
 library(lubridate)
 
+
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
 
 
-source("ImportLong.r")
-source("import_mobility.r")
+#source("ImportLong.r")
+source("Weather_new/combining_Cities.r")
+source("Google/import_mobility.r")
+rm(loc,cities)
 
-df_short<-df%>%
-  filter(!is.na(Movement),!is.na(StringencyIndex),!is.na(risktaking))%>%
+gwmp<-gwmp%>%
+  group_by(Country)
+
+gwmp$Continent<- countrycode(sourcevar = gwmp$Country,
+                            origin = "country.name",
+                            destination = "continent")
+
+city_short<-gwmp%>%
+  filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
+  group_by(Country,City)%>%
+  summarise(
+     across(where(is.numeric), mean), 
+     across(where(is.factor), first),
+     across(where(is.character), first),
+     n = n())
+
+country_short<-city_short%>%
   group_by(Country)%>%
-  summarise(n())
+   summarise(
+     across(where(is.numeric), mean), 
+     across(where(is.factor), first),
+     across(where(is.character), first),
+     n = n())
+  
 
 ```
 
@@ -51,8 +73,11 @@ df_short<-df%>%
 We use city level info from 3 data sets:
 
 * Mobility reports from Google
+  * These are daily data, starting from 15/02/2020 until 12/07/2020. That's 148 days
 * Behavioural data from GPS (aka Global Preference Survey aka Briq)
+  * These are not daily data
 * Weather
+* Daily data until 30/06/2020 (and for some 01/07/2020)- which is the date I scrapped it. That is 137 (to 138) observations in total. 
 
 
 How many observations do we gain or lose? 
@@ -73,20 +98,253 @@ print(z$Country)
 Of those `r nrow(z)` countries, South Korea is the only really big pitty... 
 But, so far, this is not as bad. 
 First, some of these countries we lose anyway from merging Google with GPS. 
+Second, we can always go back and include those missing countries. 
+
+
+Overall, we are left with `r nrow(country_short)` countries: 
+`r print(country_short$Country)` and `r nrow(city_short)`. 
+
 
 ```{r}
-z2<-df%>%
-  filter(!is.na(Movement),!is.na(StringencyIndex),!is.na(risktaking))%>%
-  anti_join(mobility_regional,by="Country")%>%
-  group_by(Country)%>%
-  summarise(n())
+DT::datatable(
+  city_short%>%
+    dplyr::select(Country,City,Temp_C,risktaking, patience, Movement, population,n)
+)
 
-print(z2$Country)
+```
+The variable n, captures the number of days we have complete (i.e. weather and GPS and mobility) observations for every city. 
+Most cities have 137 observations. This is the number of days the weather reports cover - which makes sense. 
+Some (about 20) have either 174 or 411, so 2 or 3 times what they ought to have. 
+For some reason, these cities have duplicate dates. I checked them manually: there is no difference between the two duplicates, so I fix this by aggregating by date and taking the first observation only.
+
+```{r}
+gwmp2<-gwmp%>%
+  group_by(Country,City,Date)%>%
+  summarise_all(first)
+
+#summarise_all takes ages... 
+```
+
+
+
+For the final analysis, we probably want to focus on cities that have at least 100 observations for daily temperature. 
+
+```{r}
+city100<-city_short%>%filter(n>=100)
+
+gwmp2<-gwmp2%>% filter(City %in% city100$City)
+
+city_short2<-gwmp2%>%
+  ungroup()%>%
+  group_by(Country,City)%>%
+  summarise(
+  across(where(is.numeric), mean), 
+     across(where(is.factor), first),
+     across(where(is.character), first),
+     n = n())
+  
 
 ```
 
-Specifically, we are only really losing `r nrow(z2)` (S. Korea is still one of them though). 
-Overall, from `r nrow(df_short)`, we are left with 53 countries. 
+This leaves us with `r nrow(city100)` cities. Peculiarly, according to another metric, we have `r nrow(city_short2)`. 
+Let's look more closely again:
 
-Second, we can always go back and include those missing countries. 
+```{r}
+DT::datatable(
+  city_short2%>%
+    dplyr::select(Country,City,Temp_C,risktaking, patience, Movement, population,n)
+)
+
+```
+
+It is a bit weird that although we lose only approx. 30 out of 450 cities, the total amount of observations goes down to 60 thousands from 260 thousands...
+
+
+The names of the cities derive from Google reports. 
+There are 2 more variables named: "City_GPS" that takes the names from GPS cities and "city" that takes the name from the data set I used for the population variable. 
+
+Some countries have more cities than others:
+
+```{r}
+DT::datatable(
+  city_short2%>%
+    group_by(Country)%>%
+    summarise(n_cities=n())
+)
+
+```
+
+On the map:
+
+```{r}
+qmplot(lon, lat, data = city_short2, maptype = "toner-lite", color = I("red"))
+
+```
+
+## Random checks
+
+I will now check (pseudo-)random cities and dates with online info, to see if our weather data is sensible. 
+
+* Athens, 20/03/2020
+  * Our data set says: `r gwmp2%>%filter(City=="Decentralized Administration of Attica", Date=="2020-03-20")%>% .$Temp_C `
+  * Internet says: 20C during the day and 7C during the night. Source:https://www.accuweather.com/en/gr/athens/182536/march-weather/182536   Sounds about right...
+  * Let's check for the 16th of March, which according to AccuWeather was really cold: 11C during the day and 8C during the night:
+  *  `r gwmp2%>%filter(City=="Decentralized Administration of Attica", Date=="2020-03-16")%>% .$Temp_C ` great
+* Munich, 10/05/2020
+  * Our data set says: `r gwmp2%>%filter(City=="Bavaria", Date=="2020-05-10")%>% .$Temp_C `
+  * Accuweather: 25/15
+  * Let's check on the 17th of May, where it was really hot: 35/21
+  * `r gwmp2%>%filter(City=="Bavaria", Date=="2020-05-17")%>% .$Temp_C `: this is bad... 
+  * checking if there was a mistake in the aggregation by looking at the raw data. The closest station I could find is OBERPFAFFENHOFEN, GM 
+  and MUNCHEN< GM which report avg temperatures of 54F which is 12.2. So, our matching seems to have worked, but Accuweather seems to disagree with NATIONAL CENTERS FOR ENVIRONMENTAL INFORMATION...
+  * Let me check a different site: 
+    * https://weather.com/weather/monthly/l/e0c0cd4ab9873fee5066145204f7161a0c1f7468722e633345583634cff0bbd6 
+  Here, we see that on the 17th the weather was 21/6, so very similar to our measures and completely in disagreement with accuweather. GOOD. 
+    * What about on the 10th of May: 22/14. Better. Accuweather cannot get weather accurately in the past. Wouldn't trust it for the future. 
+* Florida April, 05
+  * our data: `r gwmp2%>%filter(City=="Florida", Date=="2020-04-05")%>% .$Temp_C `
+  * weather channel: 22/17 and raining
+  * Rain variable: `r gwmp2%>%filter(City=="Florida", Date=="2020-04-05")%>% .$Rain `. Doesn't show rain.. 
+* Let's find a city where it rained on a certain day and that was an exception. 
+  * 28th Feb. in London. It rained with 0.78 cm prcp. Temperature was 11/1. 
+  * `r gwmp2%>%filter(City=="Greater London", Date=="2020-02-28")%>% .$Temp_C ` :Very good.
+  * `r gwmp2%>%filter(City=="Greater London", Date=="2020-02-28")%>% .$Rain ` : no rain...
+  * `r gwmp2%>%filter(City=="Greater London", Date=="2020-02-28")%>% .$PRCP ` : 0.23 inches is 0.55 cm
+  * Not a big discrepency. 
+  
+ Take-home messages from this exercise:
+  * Our weather matching seems to be working alright.
+  * Do not trust Accuweather
+  * Turn PRCP from inches to cm - done
+  
+
+
+
+# Movement and weather
+
+Does movement correlate with temperature? 
+
+```{r}
+
+cor.test(gwmp2$Movement,gwmp2$Temp_C)
+cor.test(gwmp2$Movement,gwmp2$Rain)
+cor.test(gwmp2$Movement,gwmp2$PRCP_Cm)
+
+```
+
+Higher temperatures are associated with lower movement and rainy days with higher movement.
+Percipiration does not correlate with movement.
+Bananas!
+First, let's focus on the first wave. 
+For that, we have to merge with the stringency index data. 
+
+```{r}
+
+source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
+
+df<-left_join(gwmp2,Ox,by=c("Country","Date"))
+
+wave1<-df%>%
+  group_by(Country,City)%>%
+  mutate(day=row_number())%>%  ###Putting a counter for each row of each group
+  add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
+  arrange(Date)%>% 
+  mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
+  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=tidyr::replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  filter(day<=fir) # Keep only the rows before the first 0 occurence
+
+
+
+cor.test(wave1$Movement,wave1$Temp_C)
+cor.test(wave1$Movement,wave1$Rain)
+cor.test(wave1$Movement,wave1$PRCP_Cm)
+
+
+```
+
+So... now we see that people go out more when percipiration is higher. 
+Let's calculate a regression coefficient for every country. 
+
+
+```{r}
+ modelsTemp<-wave1%>%
+  filter(!is.na(Temp_C),!is.na(Movement))%>%
+  group_by(Country)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ Temp_C, data = .x)))
+
+ modelsPRCP<-wave1%>%
+  filter(!is.na(PRCP_Cm),!is.na(Movement))%>%
+  group_by(Country)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ PRCP_Cm, data = .x)))
+  
+
+
+m1<-modelsTemp%>%filter(term=="(Intercept)")%>%dplyr::select(estimate)%>%rename(Intercept_Temp=estimate)
+m2<-modelsTemp%>%filter(term=="Temp_C")%>%dplyr::select(estimate,p.value)%>%rename(Temp_C_coef=estimate)
+m3<-modelsPRCP%>%filter(term=="(Intercept)")%>%dplyr::select(estimate)%>%rename(Intercept_PRCP=estimate)
+m4<-modelsPRCP%>%filter(term=="PRCP_Cm")%>%dplyr::select(estimate,p.value)%>%rename(PRCP_Cm_coef=estimate)
+
+m34<-left_join(m3,m4,by=c("Country"))
+
+m12<-left_join(m1,m2,by=c("Country"))
+models<-left_join(m12,m34,by=c("Country"))
+
+models[,-1]<-round(models[,-1],3)
+
+
+
+DT::datatable(models)
+
+
+country_short<-country_short%>%
+  left_join(models,by="Country")
+
+
+
+
+```
+
+Hard to find a pattern from this table. 
+Let's focus on temperature and discard entries with p.values>0.1. 
+
+
+```{r}
+
+
+country_short%>%
+  filter(p.value.x<0.1,!is.na(Temp_C_coef))%>%
+  ggplot(aes(x=Temp_C,y=Temp_C_coef))+
+  geom_point(colour="blue",size=2,alpha=0.7)+
+  theme_bw()+
+  labs(x = 'Average Temperature',y = "Coef. Temp~Movement")+
+
+  geom_text_repel(aes(x=Temp_C,y=Temp_C_coef,label=Country))
+  
+  
+
+
+country_short%>%
+  filter(p.value.x<0.1,!is.na(Temp_C_coef))%>%
+  ggplot(aes(x=Dewp_C,y=Temp_C_coef))+
+  geom_point(colour="blue",size=2,alpha=0.7)+
+  theme_bw()+
+    labs(x = 'Average Dewpoint',y = "Coef. Temp~Movement")+
+
+  geom_text_repel(aes(x=Dewp_C,y=Temp_C_coef,label=Country))
+
+
+
+
+
+
+
+```
+
+
+Not sure
+
+
+
+
 

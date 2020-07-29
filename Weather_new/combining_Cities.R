@@ -13,7 +13,7 @@ source("Weather_new/ImportWeather.r")
 source("Google/import_mobility.R")
 source("Briq/import_social-prefs.r")
 source("Cities/ImportCities.r")
-source("ImportLong.r")
+#source("ImportLong.r")
 
 
 
@@ -25,18 +25,26 @@ source("ImportLong.r")
 
 interGoogle_GPS<-short_mob%>%
   filter(Country %in% gps_coord$Country)%>%
-  group_by(Country)%>%
-  mutate(number=n())
+  group_by(Country)
 
 n_groups(interGoogle_GPS) #Good, back to 53, though, we prob. don't have city-level info for Croatia's GPS.
 
 interGPS_Google<-gps_coord%>%
   filter(Country %in% mobility_regional$Country)%>%
-  group_by(Country)%>%
-  mutate(number=n())
+  group_by(Country)
 
 n_groups(interGPS_Google)
 
+
+# US<-interGPS_Google%>%
+#   group_by(Country,City)%>%
+#   summarise(n=n())%>%
+#   filter(Country=="United States")
+# 
+# US1<-interGoogle_GPS%>%
+#   group_by(Country,City)%>%
+#   summarise(n=n())%>%
+#   filter(Country=="United States")
 
 #South is the city's min lat, North is the city's max lat. West is min long and East max long. 
 #We are doing a fuzzy_inner_join taking the lat from Google and placing it between the min and max from gps_coord & same for longitude
@@ -47,28 +55,58 @@ GpsGoo<-
                    by=c("lat"="SouthHalf", "lat"="NorthHalf","lon"="WestHalf","lon"="EastHalf"),
                    match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
 
+# US3<-GpsGoo%>%
+#   group_by(Country.x,City.x)%>%
+#   summarise(n=n())%>%
+#   filter(Country.x=="United States")
+
 #Gets rid of double entries
 GpsGoog<-GpsGoo%>%
   group_by(lat,lon)%>%
   summarise_all(first)%>%
-  ungroup()%>%
-  group_by(Country.x)
+  ungroup()
 
 
-n_groups(GpsGoog)
+
+GpsGoog$match<-ifelse(GpsGoog$Country.x==GpsGoog$Country.y,1,0)
+lost<-GpsGoog%>%
+  filter(match==0)
+
+#3 cities are country-mismatched - we get rid of them and unify Country.x and Country.y
+#I also rid of north, east,west,south and keep North, East, West, South - they are the same just short_mob used capitalisation. 
+
+
+GpsGoog<-GpsGoog%>%
+  filter(match==1)%>%
+  mutate(country=Country.x)%>%
+  dplyr::select(-Country.x,-Country.y,-north,-south,-east,-west)%>%
+  group_by(country)
+
+
+n_groups(GpsGoo)
+
+
+#xx<-anti_join(interGPS_Google, interGoogle_GPS, by="Country")
+# `%notin%` <- Negate(`%in%`)
+# xx<-GpsGoog$Country.x%notin%interGoogle_GPS$Country
+
+
+
+
+
+
+
 
 
 # Problem: locations like "East Middlands" from GPS, do not have coordinates because Google does not recognise them. 
 # Fixed it manually in import_mobility.r
 # Let's list all those with NA in lon or lat
 
-missing<-interGPS_Google%>%
-  filter(is.na(lat))
+
+# missing<-interGPS_Google%>%
+#   filter(is.na(lat))
 
 #Nothing is missing anymore..Good!
-
-
-
 
 
 
@@ -79,187 +117,180 @@ missing<-interGPS_Google%>%
 #Remember to eventually expand by day. 
 
 
+interGpsGoogWeather<-weather_short%>%
+  filter(Country %in% GpsGoog$country)%>%
+  group_by(Country)
+
+# there are no cities yet
+
+
+#n_groups(interGpsGoogWeather)
+#n_groups(GpsGoog)
+
+
 GpsGoogWeather<-
-  fuzzy_inner_join(weather_short,GpsGoog, 
-                   by=c("LATITUDE"="SouthHalf", "LATITUDE"="NorthHalf","LONGITUDE"="WestHalf","LONGITUDE"="EastHalf"),
-                   match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
+  fuzzy_inner_join(interGpsGoogWeather,GpsGoog, 
+                   by=c("Country"="country","LATITUDE"="SouthHalf", "LATITUDE"="NorthHalf","LONGITUDE"="WestHalf","LONGITUDE"="EastHalf"),
+                   match_fun=list(`==`,`>=`, `<=`,`>=`,`<=`)) 
 
-temCity<-GpsGoogWeather%>%
-  group_by(Country.x,City.x)%>%
-  summarise_all(first)
+#n_groups(GpsGoogWeather)#We miss one country
+#xy<-setdiff(interGoogle_GPS$Country,GpsGoogWeather$country)
+#Rwanda. I will add it manually. 
 
-#Why do temCity and tempCoord have different lengths?
+RwandaGM<-GpsGoog%>%filter(country=="Rwanda")
+RwandaW<-interGpsGoogWeather%>%filter(Country=="Rwanda")
 
-tempCoord<-GpsGoogWeather%>%
-  group_by(LATITUDE,LONGITUDE)%>%
-  summarise_all(first)
+Rwanda<-fuzzy_inner_join(RwandaW,RwandaGM, 
+                         by=c("LATITUDE"="South", "LATITUDE"="North","LONGITUDE"="West","LONGITUDE"="East"),
+                         match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
 
-n_groups(GpsGoogWeather)
-#52 countries instead of 53.. oh well!
+GpsGoogWeather<-rbind(GpsGoogWeather,Rwanda)
 
+match<-ifelse(GpsGoogWeather$country==GpsGoogWeather$Country,1,0)
 
+gwm<-GpsGoogWeather%>%
+  dplyr::select(LATITUDE:AvgTornado,City.x:Location,address:WestHalf)%>%
+  rename(City=City.x)
 
-#Gets rid of double entries
-GpsGoog<-GpsGoo%>%
-  group_by(lat,lon)%>%
-  summarise_all(first)%>%
-  ungroup()%>%
-  group_by(Country.x)
-
-
-
-
-
-#Add population info
-
-#Adding info on population. This is found in "city" data frame. 
-#I plan to do a fuzzy_join by South_half, etc. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Take average temperature for a city
-d_red<-d%>%
+US4<-gwm%>%
   group_by(Country,City)%>%
-  summarise(celcius=mean(Celcius),sd_celcius=sd(Celcius),prcp=mean(PRCP),sd_prcp=sd(PRCP))
-
-
-
-
-#city<-read.csv("Cities/worldcitiespop.csv")
-
-
-
-#social_prefs_city$Location<-apply(social_prefs_city[,c("City","Country")],1,paste,collapse=", ")
-#coord<-geocode(social_prefs_city$Location)
-
-#briq_coord<-social_prefs_city
-#briq_coord$Location<-apply(social_prefs_city[,c("City","Country")],1,paste,collapse=", ")
-#briq_coord$Lat<-coord$lat
-#briq_coord$Lon<-coord$lon
-
-#write.csv(briq_coord,"City_level_v11_coord.csv")
-
-#merge with Briq
-#First, let's keep only the relevant countries
-
-
-
-
-
-#Lat is in left df, lat_min is in right. We want Lat to be '>=' than Lat_min...etc 
-GPS<-
-  fuzzy_left_join(GPS_coord, city2, 
-                by=c("Lat"="Lat_min_5", "Lat"="Lat_max_5","Lon"="Lon_min_5","Lon"="Lon_max_5"),
-                match_fun=list(`>=`, `<=`,`>=`,`<=`))
-
-# 
-
-#Merging with Google Movement 
-## When Movement is the left df, merging takes forever...and concludes "Error: cannot allocate vector of size 240.1 Mb" 
-#the right one takes long as well: 15 mins approx.
-## Merge Google with Briq, right_join, with +-0.2 geocides
-
-c<-mobility_regional%>%
-  filter(Country %in% briq_coord$Country)
-#reducing the data set so that the fuzzy join concludes faster.. But it reduces the number of observations to 53...
-#This is because there are 18 countries that we lose because of no Movement info at the city level. 
-
-BriqGoo<-
-  fuzzy_inner_join(c, briq_coord_pop, 
-                   by=c("lat"="Lat_min", "lat"="Lat_max","lon"="Lon_min","lon"="Lon_max"),
-                   match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
-
-q<-BriqGoo%>%
-  group_by(Country)%>%
-  summarise(n()/130)
-
-q$Country
-
-US<-BriqGoo%>%
+  summarise(n=n())%>%
   filter(Country=="United States")
 
-# It doesn't work with 0.2 very well. We get only 42 countries from a possible of 71, which is the initial intersection between Google and Briq 
-# The cities are also weird. From the US we only get 2: Florida and Massachusetts while from.. Nicaragua 9
-# I will increase the range of Lat and Lon from 0.2 to 0.4 (Lat_min_4) for this and reduce it again for the weather. 
-
-briq_coord_pop<-briq_coord_pop%>%
-  mutate(Lat_min_4=Lat-0.2,
-         Lat_max_4=Lat+0.2,
-         Lon_min_4=Lon-0.2,
-         Lon_max_4=Lon+0.2)
 
 
-BriqGoo<-
-  fuzzy_inner_join(c, briq_coord_pop, 
-                   by=c("lat"="Lat_min_4", "lat"="Lat_max_4","lon"="Lon_min_4","lon"="Lon_max_4"),
-                   match_fun=list(`>=`, `<=`,`>=`,`<=`)) 
-
-q<-BriqGoo%>%
-  group_by(Country)%>%
-  summarise(n()/130)
-
-q$Country
+# gwmp<-left_join(GpsGoogWeather,CityPop,by="address")
+# qwmp_address<-gwmp%>%
+#   filter(!is.na(population))
+# summary(gwmp$population)
+##Only a handful of cities are matched by name
 
 
+##Goal 3: 
+###Adding population information - turning gwm (gps-weather-mobility to gwmp: gps - mobility - weather - population)
+CityPop<-CityPop%>%
+  dplyr::select(latitude:Country)
 
-qc<-c%>%
-  group_by(Country)%>%
-  summarise(n()/130)
+gwmp<-
+  fuzzy_left_join(gwm,CityPop, 
+                   by=c("Country"="Country","SouthHalf"="latitude","NorthHalf"= "latitude","WestHalf"="longitude","EastHalf"="longitude"),
+                   match_fun=list(`==`,`<=`, `>=`,`<=`,`>=`)) 
+
+summary(gwmp$population)
+
+xx<-setdiff(gwmp$Country.x,gwmp$Country.y)
+match<-ifelse(gwmp$Country.x==gwmp$Country.y,1,0)
+#as we would expect as now the merge took place conditional on the country matching. Still, we might have mismatches.
 
 
-# Nope, didn't help the way I had hoped. Still only 42 countries. Still only 2 from the US, but now Nicaragua has 42...!
+n_groups(gwmp) #No loss of countries. Good. 
 
-##Challenge 1: Which 11 countries do we lose because of bad match? 
-##Challenge 2: How do we include cities from US, Canada and Australia? These are countries that are big, so range might need adjustment.
 
-##Challenge 1: do an antijoin between BriqGoo and c
-
-antiC<-c%>%
-  anti_join(BriqGoo,by="Country")%>%
-  group_by(Country)%>%
-  summarise(n())
-
-antiC$Country
-
-## OK, why do we lose these countries? 
-## Because the coordinates from Google_cities did not match with any of the coordinates of the cities in Briq. 
-## How far were they?
-
-c1<-c%>%
-  filter(Country %in% antiC$Country)%>%
-  group_by(Country,City)%>%
-  summarise(lt=mean(lat),lon=mean(lon))
-
-b1<-briq_coord_pop%>%
-  filter(Country.x %in% c1$Country)%>%
- # group_by(Country.x,City)%>%
+US5<-gwmp%>%
   group_by(Country.x,City)%>%
-  summarise(lt=mean(Lat),lon=mean(Lon),loc=first(Location))
+  summarise(n=n())%>%
+  filter(Country.x=="United States")
 
-#It appears that many cities in Briq_coord_pop do not have geocedes. Maybe due to the mergure with cities
-b2<-briq_coord%>%
-   filter(Country %in% c1$Country)%>%
-  # group_by(Country.x,City)%>%
+gwmp<-gwmp%>%
+  rename(Country=Country.x)%>%
+  dplyr::select(-Country.y)
+
+
+#Goal 4: we need to summarise by city
+
+#take the medians
+
+#maybe better to extend first? Yes
+
+
+#Goal 5: expand on daily basis for weather
+
+#First, let's reduce weather to the countries we care about.
+#even better, let's keep only the stations that made it in gwmp
+
+interWeather<-weather%>%
+  filter(STATION %in% gwmp$Station)%>%
+  group_by(Country)%>%
+  mutate(Station=STATION)
+
+n_groups(interWeather)
+
+#Good, now let's match gwmp by the station, unique, identifiers
+
+gwmp_longW<-left_join(interWeather,gwmp,by=c("Station","Country"))
+
+
+#some stations appear more than once
+# DoubleStations<-gwmp_longW%>%
+#   group_by(Country,City,Station)%>%
+#   summarise(Name=first(NAME),City=first(City))%>%
+#   ungroup()%>%
+#   group_by(Station)%>%
+#   mutate(n=n())%>%
+#   filter(n>1)
+ #It looks like the stations that correspond to more than one cities are close to them. 
+
+#Of course, there will be cities with multiple stations attached to them. 
+#We decided to take the median weather conditions across these stations for each day. 
+#This is convenient as it solves the FHRSTT, variables that either 1 or 0. 
+
+gwmp_longW_city<-gwmp_longW%>%
+  group_by(Country,City,DATE)%>%
+  summarise_each(funs(if(is.numeric(.)) median(., na.rm = TRUE) else first(.)))
+#This took forever and the function is depricated. Let's try with across:
+
+# longW_city<-gwmp_longW %>%
+#   group_by(Country,City,DATE)%>%
+#   summarise(
+#     across(where(is.numeric), median), 
+#     across(where(is.factor), first),
+#     n = n(), 
+#   )
+#Also takes forever... Also, if not a factor, ignored...3 variables in this case
+#In any case, the results are satisfying:
+
+CityPool<-gwmp_longW_city%>%
   group_by(Country,City)%>%
-  summarise(lt=mean(Lat),lon=mean(Lon),loc=first(Location))
+  summarise_each(funs(if(is.numeric(.)) median(., na.rm = TRUE) else first(.)))%>%
+  ungroup()%>%
+  group_by(Country)
+
+#n_groups(CityPool) #Good
+
+#This should tell us how many cities we have in our subject pool. We ahave: 466 cities from 53 countries. 
+#We have population information for 211 of those cities.
+#
 
 
-#Yup, so I need to go back and fix the mergure with population and keep the coordinates of Briq NOT of the city. 
-#Actually, it's already there. I just need to refer to Lat instead of latitude
+#There is a problem with the US... maybe with other countries as well. British Columbia is coded as American. It shouldn't. It is Canadian.
+#This is probably a result of allowing stations to be matched with multiple cities...
+#I tried to fix the problem by doing the match according to Country and Station but the problem persists...
 
-# Challenge 2: I will see how far the state's 
 
-revgeocode(c(lon=-79.4,lat=43.7))
+# US6<-CityPool%>%
+#   filter(Country=="United States")
+# 
+# CA<-CityPool%>%
+#   filter(Country=="Canada")
 
-# I get why Canada and US get screwed up, but I don't get why Bolivia, Beni, for example, doesn't get matched. Both lon and lat are within Lon_4 and Lat_4
+#Goal 5: expand on daily basis for mobility
+#Match 
+
+gwmp_longW_city$City_GPS<-gwmp_longW_city$City
+gwmp_longW_city$City<-gwmp_longW_city$City.y
+
+
+
+gwmp_longWMG<-left_join(mobility_regional,gwmp_longW_city,by=c("Country","City","Date"))
+
+
+gwmp<-gwmp_longWMG
+
+#To do - check that gwmp_longWMG works. Best way to do it is through a report.
+#Automate the procedure for Google? Maybe not too urgent if we focus on first wave. 
+
+#use this command to discard everything but the final merged df
+rm(list=setdiff(ls(), "gwmp"))
+
+gwmp<-gwmp%>%
+  dplyr::select(Country:Movement,lon,lat,address.x,north:South_half,STATION:FRSHTT,Temp_C,Dewp_C,Fog:Tornado,wgt:address.y,population:City_GPS)

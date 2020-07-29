@@ -15,5 +15,11 @@
 # write.csv(city,"major_cities.csv")
 # setwd("C:/Users/fores/OneDrive - The University of Nottingham/GitHub/COVID-19")
 
-city<-read.csv("Cities/major_cities.csv")
-  
+#city<-read.csv("Cities/major_cities.csv")
+#city$Location<-apply(city[,c("city","Country")],1,paste,collapse=", ")
+
+#locCity<- mutate_geocode(city,Location,output="more")
+
+#write_rds(locCity,"CityPop.rds")  
+
+CityPop<-readRDS("CityPop.rds")
