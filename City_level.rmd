@@ -37,7 +37,10 @@ options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
 
 #source("ImportLong.r")
-source("Weather_new/combining_Cities.r")
+#source("Weather_new/combining_Cities.r")
+#write_rds(gwmp,"GWMP.rds")
+gwmp<-readRDS("GWMP.rds")
+
 source("Google/import_mobility.r")
 rm(loc,cities)
 
@@ -123,6 +126,15 @@ gwmp2<-gwmp%>%
   summarise_all(first)
 
 #summarise_all takes ages... 
+
+
+#write_rds(gwmp2,"GWMP2.rds")
+gwmp3<-readRDS("GWMP2.rds")
+
+length(unique(gwmp3$City))
+
+
+
 ```
 
 
@@ -132,21 +144,25 @@ For the final analysis, we probably want to focus on cities that have at least 1
 ```{r}
 city100<-city_short%>%filter(n>=100)
 
-gwmp2<-gwmp2%>% filter(City %in% city100$City)
+gwmp2<-gwmp3%>% filter(City %in% city100$City)%>%
+  filter(Country %in% city100$Country)
 
 city_short2<-gwmp2%>%
   ungroup()%>%
   group_by(Country,City)%>%
   summarise(
-  across(where(is.numeric), mean), 
+  across(where(is.numeric), mean,na.rm=T), 
      across(where(is.factor), first),
      across(where(is.character), first),
      n = n())
-  
+
+gwmp2$Rain2<-ifelse(gwmp2$PRCP>0,1,0)
 
 ```
 
 This leaves us with `r nrow(city100)` cities. Peculiarly, according to another metric, we have `r nrow(city_short2)`. 
+This is probably we have some cities that get coded to the wrong Country, like Florida in Puerto Rico. 
+Specifying filter in City and Country improves but not completely fixes (from 424 to 421 when it should be 419).
 Let's look more closely again:
 
 ```{r}
@@ -157,7 +173,7 @@ DT::datatable(
 
 ```
 
-It is a bit weird that although we lose only approx. 30 out of 450 cities, the total amount of observations goes down to 60 thousands from 260 thousands...
+We go from `r length(unique(gwmp3$City))` cities to 420 and the total amount of observations goes down to 60 thousands from 260 thousands...
 
 
 The names of the cities derive from Google reports. 
@@ -227,56 +243,52 @@ Does movement correlate with temperature?
 ```{r}
 
 cor.test(gwmp2$Movement,gwmp2$Temp_C)
-cor.test(gwmp2$Movement,gwmp2$Rain)
-cor.test(gwmp2$Movement,gwmp2$PRCP_Cm)
+cor.test(gwmp2$Movement,gwmp2$Temp_C,method="spearman")
 
+cor.test(gwmp2$Movement,gwmp2$Rain2)
+cor.test(gwmp2$Movement,gwmp2$Rain2,method="spearman")
+
+
+
+cor.test(gwmp2$Movement,gwmp2$PRCP)
+cor.test(gwmp2$Movement,gwmp2$PRCP,method="spearman")
+
+
+
+
+x<-gwmp2%>%
+  dplyr::select(Country,City,Date,Rain,PRCP)%>%
+  na.omit()
 ```
 
 Higher temperatures are associated with lower movement and rainy days with higher movement.
 Percipiration does not correlate with movement.
 Bananas!
-First, let's focus on the first wave. 
-For that, we have to merge with the stringency index data. 
 
-```{r}
+Let's see on a country/city level basis. 
 
-source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
-
-df<-left_join(gwmp2,Ox,by=c("Country","Date"))
-
-wave1<-df%>%
-  group_by(Country,City)%>%
-  mutate(day=row_number())%>%  ###Putting a counter for each row of each group
-  add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
-  arrange(Date)%>% 
-  mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
-  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
-  mutate(fir=tidyr::replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
-  filter(day<=fir) # Keep only the rows before the first 0 occurence
-
-
-
-cor.test(wave1$Movement,wave1$Temp_C)
-cor.test(wave1$Movement,wave1$Rain)
-cor.test(wave1$Movement,wave1$PRCP_Cm)
-
-
-```
 
 So... now we see that people go out more when percipiration is higher. 
 Let's calculate a regression coefficient for every country. 
 
 
 ```{r}
- modelsTemp<-wave1%>%
-  filter(!is.na(Temp_C),!is.na(Movement))%>%
-  group_by(Country)%>%
-  group_modify(~ broom::tidy(lm(Movement ~ Temp_C, data = .x)))
+gwmp2$Temp_C_sq<-gwmp2$Temp_C^2
 
- modelsPRCP<-wave1%>%
-  filter(!is.na(PRCP_Cm),!is.na(Movement))%>%
-  group_by(Country)%>%
-  group_modify(~ broom::tidy(lm(Movement ~ PRCP_Cm, data = .x)))
+#Check before SI kicked in perhaps. 
+
+ modelsTemp<-gwmp2%>%
+  filter(!is.na(Temp_C),!is.na(Movement))%>%
+  group_by(Country,City)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ Temp_C+Temp_C_sq, data = .x)))
+
+
+
+
+ modelsPRCP<-gwmp2%>%
+  filter(!is.na(PRCP),!is.na(Movement))%>%
+  group_by(Country,City)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ PRCP, data = .x)))
   
 
 
@@ -342,7 +354,89 @@ country_short%>%
 ```
 
 
-Not sure
+
+
+
+
+
+
+
+First, let's focus on the first wave. 
+For that, we have to merge with the stringency index data. 
+
+```{r}
+
+source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
+
+df<-left_join(gwmp2,Ox,by=c("Country","Date"))
+
+wave1<-df%>%
+  group_by(Country,City)%>%
+  mutate(day=row_number())%>%  ###Putting a counter for each row of each group
+  add_tally()%>% ## creating a variable "n" that counts how many rows each group has.
+  arrange(Date)%>% 
+  mutate(wave1=if_else(StringencyIndex>=dplyr::lag(StringencyIndex),1,0))%>%
+  mutate(fir=match(0,wave1)-1)%>% ### first occurence of a 0-value - 1 to discard the 0. 
+  mutate(fir=tidyr::replace_na(fir,n()))%>% ### countries that never had a 0 appear as NA. We replace NAs with total rows of 1's
+  filter(day<=fir) # Keep only the rows before the first 0 occurence
+
+
+
+cor.test(wave1$Movement,wave1$Temp_C)
+cor.test(wave1$Movement,wave1$Rain)
+cor.test(wave1$Movement,wave1$PRCP_Cm)
+
+
+```
+
+
+
+
+Let's repeat regression of weather, controlling for SI
+
+```{r}
+ modelsTempSI<-df%>%
+  filter(!is.na(Temp_C),!is.na(Movement))%>%
+  group_by(Country)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ Temp_C+Temp_C_sq+StringencyIndex, data = .x)))
+
+medn1<-modelsTemp%>%
+  filter(term=="Temp_C")%>%
+  dplyr::select(estimate)
+
+summary(medn1)
+
+medn2<-modelsTempSI%>%
+  filter(term=="Temp_C")%>%
+  dplyr::select(estimate)
+
+summary(medn2)
+
+
+#Rain
+
+ modelsPRCP_SI<-df%>%
+  filter(!is.na(PRCP),!is.na(Movement))%>%
+  group_by(Country,City)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ PRCP+StringencyIndex, data = .x)))
+
+mednR1<-modelsPRCP%>%
+  filter(term=="PRCP")%>%
+  dplyr::select(estimate)
+
+summary(mednR1)
+
+mednR2<-modelsPRCP_SI%>%
+  filter(term=="PRCP")%>%
+  dplyr::select(estimate)
+
+summary(mednR2)
+
+
+
+ 
+
+```
 
 
 
