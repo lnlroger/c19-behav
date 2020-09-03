@@ -1,7 +1,7 @@
 ---
-title: "Explore ARDL function"
-author: "Lionel Roger"
-date: "14/07/2020"
+title: "Results of ARDL estiations with covariates"
+author: "Lio, Orestis"
+date: "03/09/2020"
 output: html_document
 ---
 
@@ -15,168 +15,84 @@ source("ARDL_fun.R")
 
 ```
 
-## ARDL function
+## Intro
 
-This report is meant to explore the functionality of the ARDL.flex function and provide an overview over its output.
+This report provides an overview of the results obtained from the ARDL estimations that account for climatic variables as developed on 26th of August (aka 'last Wednesday').
 
-The function is documented in [ARDL_fun.Rd](ARDL_fun.Rd); currently this file needs to be opened in RStudio seperately and then opened using "Preview".
+Brief summary of the model: up to 7 lags (1 week) for both dependent and independent variable, dependent variable is movement, independent variables are stringency index, precipitation and temperature. 
+
+Note 1: Only units with at least 50 observations were retained, as otherwise there would be computational errors (I suppose degrees of freedom exhausted with 7*4 variables as well as constant, etc.)
+
+Note 2: We take first differences of all series, which is because they are very obviously non-stationary.
+
+Note 3: Computational errors arose from constant precipitation series in dry regions. We added a random small error term to the series as a quick fix. A cleaner solution would be to confirm if there is variation for each country before estimating, and to remove the variable if there isn't any.
 
 ## Data
 
-We will employ data for the maximum period where data is available on Movement (google) and Stringency (Oxford Tracker) at the country level. The function can however be employed for any other set of variables and at any other level of aggregation.
+To simplify / accellerate things, I saved the results of the estimations in code/ARDL_cov_03092020.Rds.
+
+The data comes as a list of 5 items:
 
 ```{r load data, echo = TRUE}
-# Prepare dataset (take differences, drop unnecessary variables and missing observations)
-df.now <- read_rds("../df_covid_long.rds") %>%
-  filter(sub_region_1 == "") %>%
-  group_by(Country) %>%
-  mutate(diff.Movement = c(NA, diff(Movement)),
-         diff.StringencyIndex = c(NA, diff(StringencyIndex))) %>%
-  dplyr::select(Country, Date, diff.Movement, diff.StringencyIndex, Movement, StringencyIndex) %>%
-  drop_na()
 
+ARDL_cov <- readRDS("ARDL_cov_03092020.Rds")
+str(ARDL_cov,1)
 
 ```
+The first 3 elements are lists of matrices: e.g., bgtest has a 7*7 matrix for each country, reporting the p-value of the breush-godfrey test for all combinations of lag-lengths p and q.
 
-Note: We take first differences of the series, which is because they are very obviously non-stationary; this will typically have to be done prior to using the data.
+Item 4 stores the entire model for each city, that includes all coefficients and their SEs.
 
-```{r plot1, echo=FALSE}
+Item 5 is a dataframe with one entry per city. It reports the key statistics for each city and the model that was chosen for it:
 
-df.plot <- df.now %>%
-  pivot_longer(cols = c(Movement,StringencyIndex,diff.Movement,diff.StringencyIndex), 
-               names_to = "series") %>%
-  filter(Country %in% unique(df.now$Country)[seq(1,100,5)])
+```{r, echo = TRUE}
 
-ggplot(df.plot[which(df.plot$series %in% c("StringencyIndex","diff.StringencyIndex")),], aes(Date,value,colour = series)) +
-  geom_line() +
-  facet_wrap(~ Country) +
-  theme_minimal()
-
-ggplot(df.plot[which(df.plot$series %in% c("Movement","diff.Movement")),], aes(Date,value,colour = series)) +
-  geom_line() +
-  facet_wrap(~ Country) +
-  theme_minimal()
-
+head(ARDL_cov$summary)
 
 ```
 
 
-On top of non-stationarity, which is fixed by differencing (see above), there seems to be a strong seasonal character in the Movement series: perhaps movement reductions relative to pre-pandemic times are stronger on weekends, when mostly non-essential activities take place; or on weekdays, when mostly banned activities take place?
-To remove this seasonality, ARDL.flex has a functionality that removes the seasonal character from the series by regressing seasonal dummies onto it, and replacing the series with the residuals; see Lovell (1963). Below, I just run that same function that ARDL.flex recurs to (I seperated it out) and plot it to see what it effectively does.
+## Key Results
 
-
-```{r plot.season, echo=FALSE}
-
-df.now$weekdays <- weekdays(df.now$Date)
-df.now$diff.Movement.cleaned <- remove.seasonality(data = df.now,
-                                                   var.to.clean = "diff.Movement",
-                                                   seasonal.var = "weekdays")
-
-df.plot <- df.now %>%
-  pivot_longer(cols = c(diff.Movement,diff.Movement.cleaned), 
-               names_to = "series") %>%
-  filter(Country %in% c(unique(df.now$Country)[seq(1,100,25)], "Jordan"))
-
-ggplot(df.plot[which(df.plot$series %in% c("diff.Movement.cleaned","diff.Movement")),], aes(Date,value,colour = series)) +
-  geom_line() +
-  facet_grid(rows = series ~ Country) +
-  theme_minimal()
-
-```
-
-Not revolutionary, maybe the cyclical element isn't as strong as initially thought, or a different method for removing it would be more appropriate. 
-Also, what's up with Jordan? I included it deliberately for I noticed its weirdness.
-
-Looking at the output of the lm() estimations associated with the de-seasoning, some weekdays tend to be significant however; which ones does depend on the country, I haven't really looked into it yet.
-
-## Use and output
-
-Let's run the function; I will set it to perform our standard application, regressing Stringency on Movement; I will let it choose from any lag length up to 12, which obviously takes a little bit of time to run.
-
-Note that the parameters below are explicitely written out for the sake of exposition, but they 'happen' to correspond to the defaults - meaning that ARDL.flex() without further arguments would do in this narrow context.
-
-```{r ardl.flex, echo = TRUE, results="hide", warning=FALSE, message=FALSE}
-
-# output.ardl <- ARDL.flex(data.input = df.now,
-#                        depvar = "diff.Movement",
-#                        indepvar = "diff.StringencyIndex",
-#                        max.p = 12, max.q = 12,
-#                        write.output = TRUE,
-#                        by.var = "Country",
-#                        vars.to.deseason = "diff.Movement",
-#                        seasonality = "weekday",
-#                        t.min = 30)
-# 
-load("ARDL-output.RData")
-
-
-```
-
-
-The output is a list with 5 elements, the central one being 'summary' - a table with one entry per country, describing the preferred model for that country and key results (currently the long-run coefficient).
-
-```{r summary1, echo=TRUE}
-
-head(output.ardl$summary)
-
-
-```
-
-
-Additionally, there are elements containing key parameters for all models considered stored in the form of matrices; these currently include the BG test for autocorrelation and the BIC (both used to select the model) as well as the long-run coefficient resulting from each of the models (as a quick check for parameter stability). For example:
-
-```{r lrmatrix, echo=TRUE}
-output.ardl$longrun$Zimbabwe
-
-```
-
-This lends itself to a surface plot or heatmap representation such as this (deliberately simplistic):
-
-```{r heatmap}
-heatmap(output.ardl$longrun$Zimbabwe, Rowv = NA,Colv = NA)
-```
-
-
-
-Lastly, all 'winning' models are saved in their entirety as ardlDlm objects, and can be called and treated in the same fashion as any lm object:
-
-```{r model, echo=TRUE}
-
-summary(output.ardl$model$Zimbabwe)
-
-```
-
-
-## Results
-
-First, note that the criteria like fairly 'rich' models (including many lags):
+First, let's look at what kinds of models our criteria like:
 
 ```{r lang length, echo=FALSE}
 
-output.ardl$summary %>%
+ARDL_cov$summary %>%
   summarise(average.p = mean(p.best),
             average.q = mean(q.best))
 
 ```
 
-Funny that these are so similar, I wonder if there's a reason for that.
+
+The choice seems to be with models that include few lags of the independent variables, but a lot of autoregressive ones (typically maxing out). Indeed, increasing p is much more 'costly' in terms if degrees of freedom, as it applies to 3 variables. This could in principle be made more flexible, but at a high cost (not readily implemented in the functions we make use of).
 
 Now let's look at the parameter of interest, the long run coefficient:
 
+```{r, echo=TRUE}
+
+summary(ARDL_cov$summary$LongRunCoefficient)
+```
+
+Nothing super-weird here, a 1 unit increase in stringency is on average associated with a 0.44% decrease in mobility as measured by google.
+
+There are 411 coefficients, so perhaps they are best summarised in the form of a histogram/density plot.
+
+
+
 ```{r lrcoeff, echo=FALSE, fig.height=16, fig.width=8}
-df.plot<- output.ardl$summary %>%
+df.plot<- ARDL_cov$summary %>%
   mutate(ObsUnit = forcats::fct_reorder(ObsUnit,-LongRunCoefficient))
 
 ggplot(df.plot,
-       aes(x = LongRunCoefficient, y = ObsUnit)) + 
-  geom_point(colour = "blue") +
-  geom_vline(xintercept = 0, colour = "red") +
+       aes(x = LongRunCoefficient)) + 
+  geom_histogram(aes(y = ..density..), fill = "grey") +
+  geom_density(color = "red") +
   theme_bw() 
 
 ```
 
-
-I consider it good news that only 3 countries exhibit a (mildly) positive coefficient, unlike in previous and more preliminary estimates.
+Only few coefficients are in the weird positive spectrum, to be precise `r sum(ARDL_cov$summary$LongRunCoefficient>0)`.
 
 ## Correlates of LR coefficients
 
