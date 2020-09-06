@@ -294,3 +294,7 @@ rm(list=setdiff(ls(), "gwmp"))
 
 gwmp<-gwmp%>%
   dplyr::select(Country:Movement,lon,lat,address.x,north:South_half,STATION:FRSHTT,Temp_C,Dewp_C,Fog:Tornado,wgt:address.y,population:City_GPS)
+
+
+#FRSHTT is corrupt, along wth the variables derived from it. Leading zeros are dropped somewhere (Excel?); can be fixed if needed
+
