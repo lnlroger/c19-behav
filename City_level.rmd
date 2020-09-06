@@ -370,6 +370,8 @@ source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
 
 df<-left_join(gwmp2,Ox,by=c("Country","Date"))
 
+df$logCase<-log(df$ConfirmedCases+1)
+
 wave1<-df%>%
   group_by(Country,City)%>%
   mutate(day=row_number())%>%  ###Putting a counter for each row of each group
@@ -397,14 +399,26 @@ Let's repeat regression of weather, controlling for SI
 ```{r}
  modelsTempSI<-df%>%
   filter(!is.na(Temp_C),!is.na(Movement))%>%
-  group_by(Country)%>%
-  group_modify(~ broom::tidy(lm(Movement ~ Temp_C+Temp_C_sq+StringencyIndex, data = .x)))
+  group_by(Country,City)%>%
+  group_modify(~ broom::tidy(lm(Movement ~ Temp_C+StringencyIndex+PRCP+ ConfirmedCases, data = .x)))
 
-medn1<-modelsTemp%>%
-  filter(term=="Temp_C")%>%
+medn1<-modelsTempSI%>%
+  filter(term=="logCase")%>%
   dplyr::select(estimate)
 
 summary(medn1)
+
+
+pval<-modelsTempSI%>%
+    filter(p.value<0.05)%>%
+  group_by(term)%>%
+  summarise(EstMed=median(estimate),n=n(),Pval=median(p.value))
+
+
+p<-modelsTempSI%>%
+  group_by(term)%>%
+  tally(p.value<0.05)
+
 
 medn2<-modelsTempSI%>%
   filter(term=="Temp_C")%>%
@@ -433,7 +447,9 @@ mednR2<-modelsPRCP_SI%>%
 summary(mednR2)
 
 
+###Data set to feed into ARDL: df
 
+write_rds(df,"CityLevel_DoARDL.rds")
  
 
 ```
