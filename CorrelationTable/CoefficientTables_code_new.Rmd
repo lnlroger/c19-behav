@@ -1,0 +1,103 @@
+---
+title: "Coefficient Tables"
+author: "Lio, Orestis"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  
+  chunk_output_type: console
+---
+
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: center;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library("tidyverse")
+library("lubridate")
+
+#rm(list = ls())
+
+
+
+
+
+df<-readRDS("GWMPO.rds")
+
+
+Munich<-df%>%
+  filter(City=="Bavaria")
+
+theta<-readRDS("code/ARDL_cov_03092020.rds")
+
+
+
+df3 <- df %>%
+  left_join(theta$summary,by =  c("City" = "ObsUnit")) 
+
+cordf<-df3%>%
+  dplyr::select(c(Country,City,patience,risktaking,altruism,trust,posrecip,negrecip,subj_math_skills,LongRunCoefficient,SI_est))%>%
+  group_by(Country,City)%>%
+  summarise_all(first)%>%
+  na.omit()
+
+
+countryDF<-cordf%>%
+  group_by(Country)%>%
+  summarise_at(vars(patience:LongRunCoefficient),mean)
+
+
+# 
+# df2<-df%>%
+#   
+
+#C1_School.closing:H1_Public.information.campaigns
+
+```
+
+First, it might be good to seperate between the restriction period and the relaxation period. 
+Let's see if the Oxford index is capturing this difference meaningfully. 
+
+
+
+```{r}
+
+cr<-cordf%>%ungroup()%>%dplyr::select(c(patience:SI_est))
+
+#cc<-countryDF%>%ungroup()%>%dplyr::select(c(patience:LongRunCoefficient))
+
+c<-round(cor(cr,use="pairwise.complete.obs"),3)
+p <- corrplot::cor.mtest(c)
+
+DT::datatable(c)
+
+corrplot::corrplot(c, method="color", p.mat = p, sig.level = 0.1,
+                   addCoef.col = "black", number.cex=0.65, number.digits = 1,
+                   insig = "blank",
+                   diag=FALSE, 
+                   type = "upper")
+
+#cor.test(lto$LongTerm,lto$Cor)  
+
+```
+
+And this is the correlation table (and a heatmap visualisation) for all countries (not just the LTO ones) that we have info about movement and stringency index. 
+An improved version would also display the number of countries that we have information of. 
+Perhaps a geom_point plot where the size of the circle is that number. 
+But, for now, maybe this will suffice. 
+
+

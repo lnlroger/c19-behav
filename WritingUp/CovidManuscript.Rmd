@@ -122,4 +122,26 @@ We could even contact Oxford and ask them to do it for us - they really should n
 # Literature Review
 
 
+# To do
+
+* Search for behavioural correlations between theta, the long-run effect of SI on mobility, and... BRIC. 
+    * Small and counter-intuitive. We looked for lag0 correlations and improved. 
+    * Still need to control for weather
+    * working files: go to "weatherMovement.r" in "Weather_new" folder to add regressors in Movement~SI. Then go to CoefficientTables_code_new.Rmd to run the correlation table. 
+    * Consider running the same with spearman correlations rather than OLS regressions. 
+    * test: is the OLS coef the same as ARDL(0)? 
+    * Can we justify a different ARDL(?) that correlates better with behavioral variables? Is there a ARDL(?) that does that?
+    
+* Choice of Movement variable
+  * Considered Residential: did not improve in intuitiveness when examined weather impact
+  * Do it for Apple movement. At the country level. Regressions are all 1-ish (except residential) but hard to compare. So create correlation table and pick the winner. Do the same with weather for all variables of Google.    
+    
+    
+* Integrate new_cases and daily_deaths to GWMPO which is the new working .rds, that augments gwmp by Oxford's SI. 
+
+
+
+
+
+
 
