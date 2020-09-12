@@ -1,5 +1,5 @@
-q<-read.csv("OxfordTracking/covid-policy-tracker-master/data/OxCGRT_latest.csv")
-saveRDS(q,"Oxf.rds")
+#q<-read.csv("OxfordTracking/covid-policy-tracker-master/data/OxCGRT_latest.csv")
+#saveRDS(q,"Oxf.rds")
 
 #Data on government policy from Oxford:  https://www.bsg.ox.ac.uk/research/publications/variation-government-responses-covid-19 
 

@@ -1,7 +1,7 @@
 library(dplyr)
 
 
-df<-readRDS("df_covid_long.rds")
+dfx<-readRDS("df_covid_long.rds")
 
 
 basic<-c("Date","week","Country","Continent")
