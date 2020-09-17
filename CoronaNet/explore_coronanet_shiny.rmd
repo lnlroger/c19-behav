@@ -6,10 +6,12 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
 library("plyr")
 library("tidyverse")
 library("countrycode")
+library("shiny")
+library("plotly")
 ```
 
 ## CoronaNet Dataset
@@ -28,49 +30,47 @@ dta <- read.csv("coronanet_release.csv") %>%
 ```{r case counts, echo=FALSE}
 
 # By type ----
-ggplot(dta,mapping = aes(y = type)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+dta.barchart.type <- dta %>%
+  group_by(type) %>%
+  dplyr::summarise(count = n()) 
+
+fig <- plot_ly(
+  x = dta.barchart.type$count,
+  y = dta.barchart.type$type,
+  name = "Types of restrictions",
+  type = "bar"
+)
+
+
+fig
 
 ```
 
-Most entries describe intervenrions related to health resources, followed bz external border restrictions, closure of schools, restriction of non/esential business, and quarantine/lockdown.
+Most entries describe intervenrions related to health resources, followed by external border restrictions, closure of schools, restriction of non-essential business, and quarantine/lockdown.
 
-Each of these types of events is divided into sub-types. Below are breakdowns of the most frequent categories.
+Each of these types of events is divided into sub-types. For instance, 'Health resources' breaks down as follows:
 
 ```{r type breakdowns, echo=FALSE}
 
 # By sub-type for most frequent types
 
-is.health.resources <- which(dta$type == "Health Resources")
+dta.health.resources <- dta%>%
+  filter(type == "Health Resources") %>%
+  group_by(type_sub_cat) %>%
+  summarise(count = n())
 
-ggplot(dta[is.health.resources,],mapping = aes(y = type_sub_cat)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+fig <- plot_ly(
+  x = dta.health.resources$count,
+  y = dta.health.resources$type_sub_cat,
+  name = "Types of restrictions",
+  type = "bar",
+  automargin = TRUE
+)
 
-is.external.border <- which(dta$type == "External Border Restrictions")
+fig <- fig %>% layout(autosize = F)
 
-ggplot(dta[is.external.border,],mapping = aes(y = type_sub_cat)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+fig
 
-is.nonessential.business <- which(dta$type == "Restriction of Non-Essential Businesses")
-
-ggplot(dta[is.nonessential.business,],mapping = aes(y = type_sub_cat)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-is.schools <- which(dta$type == "Closure of Schools")
-
-ggplot(dta[is.schools,],mapping = aes(y = type_sub_cat)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-is.lockdown <- which(dta$type == "Quarantine/Lockdown")
-
-ggplot(dta[is.lockdown,],mapping = aes(y = type_sub_cat)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
 
@@ -83,9 +83,25 @@ The reports further details about each measure; a potentially important one is w
 dta <- mutate(dta, compliance_binary = ifelse(substr(compliance,1,9) == "Mandatory", "Mandatory",
                                               ifelse(substr(compliance,1,9) == "Voluntary", "Voluntary", NA)))
 
-ggplot(dta[is.lockdown,],mapping = aes(y = compliance_binary)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+is.lockdown <- which(dta$type == "Quarantine/Lockdown")
+
+dta.mandatory <- dta%>%
+  filter(type == "Quarantine/Lockdown") %>%
+  group_by(compliance_binary) %>%
+  summarise(count = n())
+
+fig <- plot_ly(
+  x = dta.mandatory$count,
+  y = dta.mandatory$compliance_binary,
+  name = "Mandatory vs voluntary lockdown",
+  type = "bar",
+  automargin = TRUE
+)
+
+fig <- fig %>% layout(autosize = F)
+
+fig
+
 
 ```
 
@@ -104,9 +120,18 @@ lockdown.per.country <- dta[is.lockdown,] %>%
   tally() %>%
   arrange(desc(n))
 
-ggplot(lockdown.per.country[1:40,],mapping = aes(x = country,y = n)) +
-  geom_bar(stat = "identity") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+fig <- plot_ly(
+  x = lockdown.per.country[1:40,]$country,
+  y = lockdown.per.country[1:40,]$n,
+  name = "Number of announcements by country",
+  type = "bar",
+  automargin = TRUE
+)
+
+fig <- fig %>% layout(autosize = F)
+
+fig
+
 
 ```
 
@@ -123,9 +148,24 @@ dta <- mutate(dta, level_binary = ifelse(init_country_level %in% c("National", "
                                                 NA
                                                 )))
 
-ggplot(dta[is.lockdown,], mapping = aes(y = level_binary)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+dta.admin.level <- dta%>%
+  filter(type == "Quarantine/Lockdown") %>%
+  group_by(level_binary) %>%
+  tally()
+
+fig <- plot_ly(
+  x = dta.admin.level$n,
+  y = dta.admin.level$level_binary,
+  name = "Administrative level of lockdown",
+  type = "bar",
+  automargin = TRUE
+)
+
+fig <- fig %>% layout(autosize = F)
+
+fig
+
+
 
 ```
 
@@ -143,7 +183,14 @@ Let us also look at when those lockdown measures came into place.
 lockdown.per.day <- dta[is.lockdown,] %>%
   group_by(date_start) %>%
   tally()
-  
+
+fig <- plot_ly(data = lockdown.per.day,
+               x = ~date_start,
+               y = ~n,
+               type = "bar")
+fig  
+
+
 ggplot(lockdown.per.day,mapping = aes(x = as.Date(date_start),y = n)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
@@ -166,15 +213,30 @@ index.daily <- dta %>% # Daily series of index by country
             index_low = mean(index_low_est), na.rm = TRUE,
             continent = first(continent),
             region = first(region)) %>%
-  arrange(country, date_start) %>%
+  dplyr::arrange(country, date_start) %>%
   filter(as.Date(date_start) < as.Date("2020-04-20")) 
 
-index.daily.continent <- index.daily %>%
-  group_by(continent, date_start) %>%
-  summarise(index_high = median(index_high, na.rm = TRUE),
-            index_median = median(index_median, na.rm = TRUE),
-            index_low = median(index_low), na.rm = TRUE) %>%
-  na.omit()
+index.daily.wide <- index.daily %>%
+  pivot_wider(id_cols = c("country","date_start"),names_from = country, values_from = index_median) %>%
+  dplyr::arrange(date_start) %>%
+  fill(-date_start, .direction = "down")
+
+fig <- plot_ly()%>%
+  layout(title = "Policy index over time",
+         xaxis = list(title = ""),
+         yaxis = list (title = "") )
+
+ToAdd <- setdiff(colnames(index.daily.wide),"date_start")
+
+for(i in ToAdd){
+  fig <- fig %>% add_lines(x = index.daily.wide[["date_start"]], y = index.daily.wide[[i]], name = i)
+}
+
+fig <- fig %>% layout(showlegend = FALSE)
+
+fig 
+
+# Index by region
 
 index.daily.region <- index.daily %>%
   group_by(region, date_start) %>%
@@ -183,39 +245,26 @@ index.daily.region <- index.daily %>%
             index_low = median(index_low), na.rm = TRUE) %>%
   na.omit()
 
-index.daily.global <- index.daily %>%
-  group_by(date_start) %>%
-  summarise(index_high = median(index_high, na.rm = TRUE),
-            index_median = median(index_median, na.rm = TRUE),
-            index_low = median(index_low), na.rm = TRUE) %>%
-  mutate(country = "World",
-         continent = "World",
-         region = "World") %>%
-  na.omit()
+index.daily.region.wide <- index.daily.region %>%
+  pivot_wider(id_cols = c("region","date_start"),names_from = region, values_from = index_median) %>%
+  dplyr::arrange(date_start) %>%
+  fill(-date_start, .direction = "down")
+
+fig <- plot_ly()%>%
+  layout(title = "Policy index over time (region)",
+         xaxis = list(title = ""),
+         yaxis = list (title = "") )
+
+ToAdd <- setdiff(colnames(index.daily.region.wide),"date_start")
+
+for(i in ToAdd){
+  fig <- fig %>% add_lines(x = index.daily.region.wide[["date_start"]], y = index.daily.region.wide[[i]], name = i)
+}
 
 
+fig 
 
-# Index by country
 
-ggplot(index.daily, mapping = aes(x = as.Date(date_start), y = index_median, colour = country)) +
-  geom_line() +
-  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1),
-        legend.position = "none")
-
-# Index by continent
-
-ggplot(index.daily.continent, mapping = aes(x = as.Date(date_start), y = index_median, colour = continent)) +
-  geom_smooth(span = 0.2, se=FALSE) +
-  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-# Index by region
-
-ggplot(index.daily.region, mapping = aes(x = as.Date(date_start), y = index_median, colour = region)) +
-  geom_smooth(span = 0.2, se=FALSE) +
-  geom_smooth(data = index.daily.global, span = 0.2, size = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
 ```
@@ -237,68 +286,11 @@ first.lockdown <- dta %>%
   slice(1) %>%
   distinct()
 
-histogram.lockdown <- ggplot(first.lockdown, aes(x=first_lockdown)) +
-  geom_histogram()
-histogram.lockdown
+fig <- plot_ly(x = first.lockdown$first_lockdown, type = "histogram")
 
-```
-
-Plotting those against our originally recorded lockdown dates creates a real mess, so clearly this needs some kind of reconciliation (the same exercise filtering only for nation-wide lockdowns yields the same).
-
-
-## Policy activity index and movement
-
-Below is a plot of the Cheng Policy Activity Index and Movement (Google) for a few selected countries.
-
-The definition of the index is a little vague, the researchers don't seem comfortable providing any straightforward explanation as to what it represents. The main criterion seems to be the 'costliness' of any given policy for a givernment:
-
-> Given the enormous size of our data, we constructed a policy activity index that summarizes the different indicators in our data for each country for each day since Dec 31st 2019. The index is produced using a statistical model that takes into account which policies seem to be more costly/difficult to implement than other policies. For more details on the methodology, see our working paper. [https://coronanet-project.org/visuals.html]
-
-The working paper does't offer much of a clarification (but it does show parameters, like the relative weight of different measures); my main concerns are:
-
-* Is 'cost' confounded with 'usefulness'? I'm not sure whether a policy is considered costly because it is implemented late or only briefly, or because perhaps the coder had to rate it. If the former is the case, the policy may well have been implemented late / removed early because it just isn't that effective in containing the spread of the virus.
-* They seem to aim at making 'policy activity' or 'severity' (they seem to have switched to that latter expression in recent releases) comparable across countries, that is, absolute values of the index meaningful. While I wouldn't discard that altogether, it probably is very much undermined by data reporting issues.
-
-In any case, as expected, movement and this index tend to move in opposite directions although the pattern isn't too clear cut.
-
-
-
-```{r policy movement, echo=FALSE}
-
-# Plot policy index versus mobility
-
-countries.plot <- c("United Kingdom", "France", "Germany", "Italy")
-
-dta.plot.movement.index <- dta %>% # Daily series of index and mobility by country
-  group_by(country, date_start) %>%
-  dplyr::summarise(index_high = mean(index_high_est, na.rm = TRUE),
-            index_median = mean(index_med_est, na.rm = TRUE),
-            index_low = mean(index_low_est, na.rm = TRUE),
-            continent = first(continent),
-            region = first(region)) %>%
-  arrange(country, date_start) %>%
-  filter(as.Date(date_start) < as.Date("2020-04-20")) %>%
-  left_join(read.csv("../df_covid_long.csv"), by = c("country" = "Country", "date_start" = "Date")) %>%
-  select(country, date_start, index_median, Movement, DateLockDown) %>%
-  filter(country %in% countries.plot) %>%
-  pivot_longer(-c(country,date_start,DateLockDown), names_to = "series", values_to = "value") %>%
-  arrange(country, series, date_start)
-  
-  
-
-
-ggplot(dta.plot.movement.index, aes(x = as.Date(date_start), y = value, colour = series)) +
-  geom_line(size = 1) +
-  geom_vline(data = ddply(dta.plot.movement.index, "country", summarize, lockdown = as.Date(first(DateLockDown), format = "%d/%m/%Y")), aes(xintercept=lockdown)) +
-  facet_grid(series~country, scales = "free") +
-  theme(legend.position = "none")
+fig
 
 
 ```
 
 
-## Next steps 
-
-* Code most relevant events into country-day format (decide what's relevant)
-* Merge with existing dataset
-* Explore time series analysis / macro panel options with complete dataset
