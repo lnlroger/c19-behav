@@ -48,7 +48,14 @@ biblio-style: "apalike"
 link-citations: true
 ---
 
+# Playing with data
 
+For the latest common playground you need to generate the .rds "gwmp". 
+This contains information at the city level about weather, Briq, Mobility as well as country level info on stringency (from Oxford) and cases of Covid. The date we start recording info is on the 15th of Feb. and we stop on early July. 
+
+I cannot upload to Git the "gwmp.rds" because it's more than 100 mb. 
+You can either unzip its compressed version or run the code in "combining_Cities.R". 
+Note: for some reason, Git doesn't recognise the "weather.rds" file which is necessary for the previous script...
 
 
 # Introduction
@@ -120,6 +127,7 @@ We could even contact Oxford and ask them to do it for us - they really should n
 
 
 # Literature Review
+
 
 
 # To do

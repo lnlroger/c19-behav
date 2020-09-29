@@ -39,7 +39,7 @@ options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 #source("ImportLong.r")
 #source("Weather_new/combining_Cities.r")
 #write_rds(gwmp,"GWMP.rds")
-gwmp<-readRDS("GWMP.rds")
+gwmp<-readRDS("gwmp.rds")
 
 source("Google/import_mobility.r")
 rm(loc,cities)
@@ -449,7 +449,7 @@ summary(mednR2)
 
 ###Data set to feed into ARDL: df
 
-write_rds(df,"CityLevel_DoARDL.rds")
+#write_rds(df,"CityLevel_DoARDL.rds")
  
 
 ```
