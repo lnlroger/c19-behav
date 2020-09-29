@@ -3,7 +3,7 @@ library(tidyverse)
 library(lubridate)
 library(countrycode)
 
-weather<-readRDS("Weather_new/weather.rds")%>%
+weather<-readRDS("weather.rds")%>%
   filter(!is.na(LATITUDE))%>%
   mutate(Lat_min_1=LATITUDE-0.1,
           Lat_max_1=LATITUDE+0.1,

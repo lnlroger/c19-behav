@@ -9,7 +9,7 @@ library(ggmap)
 #Load WeatherJan-Jun-2020.rdata
 
 
-source("Weather_new/ImportWeather.r")
+source("ImportWeather.r")
 source("Google/import_mobility.R")
 source("Briq/import_social-prefs.r")
 source("Cities/ImportCities.r")
