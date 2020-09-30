@@ -147,7 +147,7 @@ We could even contact Oxford and ask them to do it for us - they really should n
     
 * Integrate new_cases and daily_deaths to GWMPO which is the new working .rds, that augments gwmp by Oxford's SI. 
 
-
+* Test whether the gwmp data set (augmented for total cases etc.) is accurately merged. 
 
 
 
