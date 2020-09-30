@@ -300,8 +300,12 @@ gwmp<-gwmp%>%
 source("OxfordTracking/covid-policy-tracker-master/data/import_OxCGRT.R")
 
 
-#gwmp2<-left_join(gwmp,Ox,by=c("Country","Date"))
+gwmp2<-left_join(gwmp,Ox,by=c("Country","Date"))
 
-#write_rds(gwmp2,"gwmp.rds")
+OxCor<-readRDS("oxford_coronanet.rds")
+
+gwmp3<-left_join(gwmp2,OxCor,by=c("Country","Date"))
+
+write_rds(gwmp3,"gwmp.rds")
 
 
