@@ -1,0 +1,131 @@
+---
+title: "Covid-19: Scoping the field"
+author: "Orestis, Lio"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    toc : true
+    toc_float : true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+
+library(tidyverse)
+library(stringr)
+library(lmerTest)
+library(stargazer)
+library(mfx)
+library(knitr)
+library(kSamples)
+library(FSA)
+library(kableExtra)
+library(xtable)
+library(miceadds)
+library(jtools)
+library(plm)
+library(clubSandwich)
+library(ggrepel)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(naniar)
+library(ggpubr)
+library(lubridate)
+library(ggmap)
+library(tufte)
+
+options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
+
+
+rm(list = ls())
+
+
+
+gwmp<-readRDS("gwmp.rds")
+
+city_short<-gwmp%>%
+  filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
+  group_by(Country,City)%>%
+  summarise(
+     across(where(is.numeric), mean), 
+     across(where(is.factor), first),
+     across(where(is.character), first),
+     n = n())
+
+country_short<-city_short%>%
+  group_by(Country)%>%
+   summarise(
+     across(where(is.numeric), mean), 
+     across(where(is.factor), first),
+     across(where(is.character), first),
+     n = n())
+  
+
+
+```
+
+# Introduction
+
+> The ultimate measure of a man is not where he stands in moments of comfort and convenience, but where he stands at times of challenge and controversy.
+`r tufte::quote_footer('---  Martin Luther King')`
+
+
+Our goal in this project is to construct a new behavioural measure of 'compliance'. 
+Unlike most other behavioural approaches that elicit such measures with experimental procedures, our approach is to derive this measure from data capturing real-life responses. 
+We treat Covid-19 as an exogenous shock that allows us to track real-world behaviour, namely, responsiveness to Policy (but also, to each country's respective urgency).
+The high-stakes (life or death) of the situation and the attention it has received world-wide make this index all the more meaningful.
+
+
+# Key variables
+
+
+## Stringency Index
+
+This derived from a quantitative integration of governmental responses to the the pandemic. 
+
+### Oxford
+
+### Coronanet
+
+## Movement
+
+Describe Google's mobility reports. 
+
+# Some tables and graphs
+
+Notice how I round the digits now from the table.
+
+```{r}
+DT::datatable(
+  city_short%>%
+    dplyr::select(Country,City,Temp_C,risktaking, patience, Movement, population,n)
+   
+)%>%  
+  DT::formatRound(columns=c('Temp_C','risktaking','patience','Movement'),digits=3)
+  
+
+```
+
+
+# Missing variables: Weather
+
+We need to find a way to cite. 
+
+Going more granular: city level analysis. 
+
+Increasing the level of our data-granularity is a good thing. 
+Even if we cluster errors at the country-level, we still get a boost on power. 
+Moreover, it does not matter if we do not get city-level data for all variables of interest. 
+For example, @alfaro2020social, use city-level mobility data but country-level death and total cases data. 
+We probably should do the same. 
+
+
+On the map:
+
+```{r}
+qmplot(lon, lat, data = city_short, maptype = "toner-lite", color = I("red"))
+
+```
