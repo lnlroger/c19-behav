@@ -8,12 +8,16 @@ library(ggmap)
 #Set wd in file location
 #Load WeatherJan-Jun-2020.rdata
 
+`%notin%` <- Negate(`%in%`)
 
 source("Weather_new/ImportWeather.r")
 source("Google/import_mobility.R")
 source("Briq/import_social-prefs.r")
 source("Cities/ImportCities.r")
 #source("ImportLong.r")
+source("Government_Gelfand/import_gelfand.r")
+source("Collectivism/import_collectivism.r")
+
 
 
 
@@ -87,7 +91,6 @@ n_groups(GpsGoo)
 
 
 #xx<-anti_join(interGPS_Google, interGoogle_GPS, by="Country")
-# `%notin%` <- Negate(`%in%`)
 # xx<-GpsGoog$Country.x%notin%interGoogle_GPS$Country
 
 
@@ -306,6 +309,10 @@ OxCor<-readRDS("oxford_coronanet.rds")
 
 gwmp3<-left_join(gwmp2,OxCor,by=c("Country","Date"))
 
-write_rds(gwmp3,"gwmp.rds")
+
+gwmp4<-left_join(gwmp3,Gf_gov,by="Country")
+gwmp5<-left_join(gwmp4,hf,by="Country")
+
+write_rds(gwmp5,"gwmp.rds")
 
 
