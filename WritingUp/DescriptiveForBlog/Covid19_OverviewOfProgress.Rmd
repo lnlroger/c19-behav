@@ -12,6 +12,8 @@ editor_options:
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 6, fig.width = 12)
+knitr::opts_knit$set(root.dir = "../../")
+
 
 library(tidyverse)
 library(countrycode)
@@ -44,7 +46,9 @@ options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
 
 
+```
 
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 rm(list = ls())
 
 
@@ -65,13 +69,14 @@ gwmp<-gwmp%>%
   
 
 city_short<-gwmp%>%
-  filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
+  dplyr::filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
   group_by(Country,City)%>%
   summarise(
     TotalCases=mean(ConfirmedCases,na.rm=T),
     TotalDeaths=mean(ConfirmedDeaths,na.rm=T),
     Population=mean(population),
     COL=first(COL),
+    Temp_C = mean(Temp_C),
     Mobility=mean(Movement),
     SI=mean(StringencyIndex.x),
     Cnet=mean(index_med_est),
@@ -80,17 +85,19 @@ city_short<-gwmp%>%
     Patience=first(patience),
      across(where(is.factor), first),
      across(where(is.character), first),
-     n = n())
+     n = n(),
+    lon = first(lon),
+    lat = first(lat))
 
-country_short<-gwmp%>%
-  filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
+country_short<-gwmp %>%
+  dplyr::filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
   group_by(Country)%>%
    summarise(
      TotalCases=mean(ConfirmedCases,na.rm=T),
     TotalDeaths=mean(ConfirmedDeaths,na.rm=T),
       Population=mean(population),
-
     COL=first(COL),
+    Temp_C = mean(Temp_C),
     Mobility=mean(Movement),
     SI=mean(StringencyIndex.x),
     Cnet=mean(index_med_est),
@@ -361,10 +368,10 @@ Notice how I round the digits now from the table.
 ```{r}
 DT::datatable(
   city_short%>%
-    dplyr::select(Country,City,Temp_C,risktaking, patience, Movement, population,n)
+    dplyr::select(Country,City,Temp_C,Risk, Patience, Mobility, Population,n)
    
 )%>%  
-  DT::formatRound(columns=c('Temp_C','risktaking','patience','Movement'),digits=3)
+  DT::formatRound(columns=c('Temp_C','Risk','Patience','Mobility'),digits=3)
   
 
 ```

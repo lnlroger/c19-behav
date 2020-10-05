@@ -17,3 +17,4 @@ dta2 <- left_join(dta,coronanet, by = c("Country","Date")) %>%
   summarise_all(first) %>%
   fill(index_med_est, .direction = "down")
 
+write_rds(dta2,"../oxford_coronanet.rds")
