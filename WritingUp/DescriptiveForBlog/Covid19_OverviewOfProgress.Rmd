@@ -54,32 +54,48 @@ rm(list = ls())
 
 
 
-gwmp<-readRDS("gwmp.rds")
+gwmp_0<-readRDS("gwmp.rds")%>%
+  select(!population)
 
-gwmp$continent <- countrycode(sourcevar = gwmp$Country,
-                            origin = "country.name",
-                            destination = "continent")
+source("CasesDeaths/import_cases_deaths.r")#I am importing the latest "ourworldindata" data set. Besides detailed info on population, total cases/deaths
+#we also get Oxford's SI. I use the latter to see if the mergure works and it does.
 
 
-gwmp<-gwmp%>%
-  #dplyr::arrange(Date)%>%
-  group_by(Country)%>%
-  mutate(New_cases = ConfirmedCases - dplyr::lag(ConfirmedCases))%>%
-  mutate(New_deaths = ConfirmedCases - dplyr::lag(ConfirmedDeaths))%>%
-  ungroup()
+gwmp<-merge(gwmp_0,days,by=c("Country","Date"),all=T)%>%
+  dplyr::filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
+  dplyr::arrange(Country,City,Date)
+
+gwmp$week<-floor_date(gwmp$Date,"week")
+
+#and merging the data set expanding for the latest dates.
+
+
+# gwmp$continent <- countrycode(sourcevar = gwmp$Country,
+#                             origin = "country.name",
+#                             destination = "continent")
+
+
+# gwmp<-gwmp%>%
+#   #dplyr::arrange(Date)%>%
+#   group_by(Country)%>%
+#   mutate(New_cases = ConfirmedCases - dplyr::lag(ConfirmedCases))%>%
+#   mutate(New_deaths = ConfirmedCases - dplyr::lag(ConfirmedDeaths))%>%
+#   ungroup()
   
+
+
 
 city_short<-gwmp%>%
   dplyr::filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
   group_by(Country,City)%>%
   summarise(
-    TotalCases=mean(ConfirmedCases,na.rm=T),
-    TotalDeaths=mean(ConfirmedDeaths,na.rm=T),
+    TotalCases=mean(total_cases,na.rm=T),
+    TotalDeaths=mean(total_deaths,na.rm=T),
     Population=mean(population),
     COL=first(COL),
     Temp_C = mean(Temp_C),
     Mobility=mean(Movement),
-    SI=mean(StringencyIndex.x),
+    SI=mean(stringency_index),
     Cnet=mean(index_med_est),
     Risk=first(risktaking),
     Altruism=first(altruism),
@@ -94,20 +110,22 @@ country_short<-gwmp %>%
   dplyr::filter(!is.na(Movement),!is.na(risktaking),!is.na(Temp_C))%>%
   group_by(Country)%>%
    summarise(
-     TotalCases=mean(ConfirmedCases,na.rm=T),
-    TotalDeaths=mean(ConfirmedDeaths,na.rm=T),
-      Population=mean(population),
+     TotalCases=mean(total_cases,na.rm=T),
+    TotalDeaths=mean(total_deaths,na.rm=T),
+    Population=mean(population),
     COL=first(COL),
     Temp_C = mean(Temp_C),
     Mobility=mean(Movement),
-    SI=mean(StringencyIndex.x),
+    SI=mean(stringency_index),
     Cnet=mean(index_med_est),
     Risk=first(risktaking),
     Altruism=first(altruism),
     Patience=first(patience),
      across(where(is.factor), first),
      across(where(is.character), first),
-     n = n())
+     n = n(),
+    lon = first(lon),
+    lat = first(lat))
   
 
 
@@ -136,12 +154,12 @@ Looks fine to me. We should perform later on more check ups. Like:
 `r tufte::quote_footer('---  Martin Luther King')`
 
 
-Our goal in this project is to construct a new behavioural measure of 'compliance'. 
+Our goal in this project is to construct a new behavioral measure of 'compliance'. 
 Unlike most other behavioural approaches that elicit such measures with experimental procedures, our approach is to derive this measure from data capturing real-life responses. 
-We treat Covid-19 as an exogenous shock that allows us to track real-world behaviour, namely, responsiveness to Policy (but also, to each country's respective urgency).
+We treat Covid-19 as an exogenous shock that allows us to track real-world behavior, namely, responsiveness to Policy (adjusted to each country's idiosyncratic circumstances, such as urgency and local weather).
 The high-stakes (life or death) of the situation and the attention it has received world-wide make this index all the more meaningful.
-Identifying this behavioural measure and its cross-regional heterogeneity has potentially immediate policy implications. 
-At the time when these lines are written: `r format(Sys.time(), '%d %B, %Y')` , the world is experiencing a resurgence of total cases infected. 
+Identifying this behavioral measure and its cross-regional heterogeneity has potentially immediate policy implications. 
+At the time when these lines are written, `r format(Sys.time(), '%d %B, %Y')` , the world is experiencing a resurgence of total cases infected. 
 A combination of factors such as colder and dumper weather making outdoors gatherings harder and re-opening of schools is likely to reinforce this trend. 
 
 
@@ -149,12 +167,12 @@ A combination of factors such as colder and dumper weather making outdoors gathe
 
 ```{r}
 gwmp%>%
-  filter(!is.na(New_cases))%>%
-  group_by(continent,week)%>%
-  summarise(newCases=mean(New_cases))%>%
-  mutate(label = if_else(week == max(week,na.rm=T), as.character(continent), NA_character_)) %>%
+  filter(!is.na(new_cases))%>%
+  group_by(Continent,week)%>%
+  summarise(newCases=mean(new_cases))%>%
+  mutate(label = if_else(week == max(week,na.rm=T), as.character(Continent), NA_character_)) %>%
 
-  ggplot(aes(x = week, y = newCases, color=continent)) + 
+  ggplot(aes(x = week, y = newCases, color=Continent)) + 
   geom_line(size=1) +
   #scale_colour_brewer(palette = 'Set1')+
   #guides(colour="legend")
