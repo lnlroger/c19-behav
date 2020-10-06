@@ -39,6 +39,7 @@ library(ggpubr)
 library(lubridate)
 library(ggmap)
 library(tufte)
+library(plotly)
 
 options("jtools-digits" = 4,scipen=999) # set displayed decimal places to 4
 
@@ -247,87 +248,288 @@ We construct this measure by measuring the impact of governmental policies on pe
 Thanks to the datasets of Oxford and Coronanet, we are able to use an integrated measure of stringency, defined at a country level. 
 Thanks to Google's initiative to publicize anonymized data on mobility, we can track changes in movement. 
 
-
-
-
-
 ## Stringency Index
 
-This derived from a quantitative integration of governmental responses to the the pandemic. 
+There are two major initiatives aiming to quantify the stringency of policies implemented by governments in order to contain the spread of the disease, the CoronaNet research project, and the Oxford COVID-19 Government Response Tracker (OxCGRT). The following two subsections aim at exploring the data offered by those projects and assess their suitability for our aims.
 
+### CoronaNet research project
 
+The CoronaNet project produces a dataset that reports individual policy actions by Governments around the world, relying on a network of volunteers around the world who collect and submit interventions based mainly on media reports. The authors also derive an aggregate measure of policy activity, which uses "a statistical model that takes into account which policies seem to be more costly/difficult to implement than other policies" which is described in more detail in their [Nature Human Behaviour publication](https://www.nature.com/articles/s41562-020-0909-7). 
 
-
-### Oxford
-
-
-  $\color{blue}{\text{ I normalize the score to be in the same scale between Cnet and Oxf.}}$ 
-
-
+In its raw form the dataset has one entry per policy action - this could be several per day for any given country, or none. To try and get a sense of the dataset, let us first have a look at the types of entries that dominate it.
 
 ```{r}
-gwmp%>%
-  filter(!is.na(StringencyIndex.x))%>%
-  mutate(Oxford_norm=scale(StringencyIndex.x))%>%
-  group_by(continent, week)%>%
-  summarise(Oxford_Stringency_norm=mean(Oxford_norm))%>%
-  mutate(label = if_else(week == max(week,na.rm=T), as.character(continent), NA_character_)) %>%
+CoronaNet <- read.csv("CoronaNet/coronanet_release.csv") %>%
+  mutate(continent = countrycode(ISO_A3, "iso3c", "continent")) %>%
+  mutate(region = countrycode(ISO_A3, "iso3c", "region"))
 
-  ggplot(aes(x = week, y = Oxford_Stringency_norm, color=continent)) + 
-  geom_line(size=1) +
-  #scale_colour_brewer(palette = 'Set1')+
-  #guides(colour="legend")
- 
-  scale_color_discrete(guide = FALSE)+
-  
-  
-   theme_minimal()+
-  theme(text = element_text(size=15))+
-  geom_label_repel(aes(label = label),
-                  nudge_x = 1,
-                  na.rm = TRUE)
-  
-  
+# By type ----
+dta.barchart.type <- CoronaNet %>%
+  group_by(type) %>%
+  dplyr::summarise(count = n()) 
+
+fig <- plot_ly(
+  x = dta.barchart.type$count,
+  y = dta.barchart.type$type,
+  name = "Types of restrictions",
+  type = "bar"
+)
+
+fig
+
+```
+
+Most entries describe intervenrions related to health resources, followed by external border restrictions, closure of schools, restriction of non-essential business, and quarantine/lockdown.
+
+Each of these types of events is divided into sub-types. For instance, 'Health resources' breaks down as follows:
+
+```{r type breakdowns, echo=FALSE}
+
+# By sub-type for most frequent types
+
+dta.health.resources <- CoronaNet%>%
+  filter(type == "Health Resources") %>%
+  group_by(type_sub_cat) %>%
+  summarise(count = n())
+
+fig <- plot_ly(
+  x = dta.health.resources$count,
+  y = dta.health.resources$type_sub_cat,
+  name = "Types of restrictions",
+  type = "bar",
+  automargin = TRUE
+)
+
+fig <- fig %>% layout(autosize = F)
+
+fig
+
 
 ```
 
 
+Of particular interest to our endeavour is the general category Lockdown/Quarantine, so let us have a closer look. 
+
+```{r lockdown compliance, echo=FALSE}
+
+# Types of quarantine (compliance)
+
+dta.mandatory <- mutate(CoronaNet, compliance_binary = ifelse(substr(compliance,1,9) == "Mandatory", "Mandatory",
+                                              ifelse(substr(compliance,1,9) == "Voluntary", "Voluntary", NA))) %>%
+  filter(type == "Quarantine/Lockdown") %>%
+  group_by(compliance_binary) %>%
+  summarise(count = n())
+
+fig <- plot_ly(
+  x = dta.mandatory$count,
+  y = dta.mandatory$compliance_binary,
+  name = "Mandatory vs voluntary lockdown",
+  type = "bar",
+  automargin = TRUE
+)
+
+fig <- fig %>% layout(autosize = F)
+
+fig
+
+
+```
+
+Restricting the dataset to this type of event, we are left with `r sum(dta.mandatory$count)` observations - way more entries than what we would expect given what we normally understand by 'lockdown'.
+
+The vast majority of these interventions are registered as 'mandatory', so seem to go beyond mere recommendations by government agencies or officials (which could legitimately be repeated several times). Further slicing of the data reveals that most of the interventions are at the national level, meaning that this doesn't seem to be driven by federalist countries, where lockdowns happen at a sub-national level (e.g., US and Germany).
+
+The temporal distribution of the Quantine/Lockdown events registered in the CoronaNet database roughly corresponds to the perception that policy activity reached its peak in late March:
+
+```{r lockdown time, echo=FALSE}
+
+# Distribution of lockdown announcements in time
+
+lockdown.per.day <- CoronaNet %>%
+  filter(type == "Quarantine/Lockdown") %>%
+  group_by(date_start) %>%
+  tally()
+
+fig <- plot_ly(data = lockdown.per.day,
+               x = ~date_start,
+               y = ~n,
+               type = "bar")
+fig  
 
 
 
+```
 
-### Coronanet
+For a systematic comparison of policies across countries, this type of data of course needs further processing and aggregating. Given CoronaNet's ambition of digesting a very large number of events (and along many dimensions), this seems like a daunting task. In order to collapse the information into a single index, the authors employ Bayesian methods that essentially aim to quantify the cost of any given type of measure, and from that cost derive a level of policy activity.
+The graph below offers a glimpse at their index, aggregated by continent and week for legibility.
 
 ```{r}
-gwmp%>%
+
+index.daily.region <- gwmp %>%
   filter(!is.na(index_med_est))%>%
-  mutate(Coronanet_norm=scale(index_med_est))%>%
-  group_by(continent, week)%>%
-  summarise(Coronanet_Strigency_norm=mean(Coronanet_norm))%>%
-  mutate(label = if_else(week == max(week,na.rm=T), as.character(continent), NA_character_)) %>%
+  group_by(continent, week) %>%
+  dplyr::summarise(CoronaNet_Policy_Index=mean(index_med_est)) %>%
+  pivot_wider(id_cols = c("continent","week"),names_from = continent, values_from = CoronaNet_Policy_Index) %>%
+  dplyr::arrange(week) %>%
+  fill(-week, .direction = "down")
 
-  ggplot(aes(x = week, y = Coronanet_Strigency_norm, color=continent)) + 
-  geom_line(size=1) +
-  #scale_colour_brewer(palette = 'Set1')+
-  #guides(colour="legend")
- 
-  scale_color_discrete(guide = FALSE)+
-  
-  
-   theme_minimal()+
-  theme(text = element_text(size=15))+
-  geom_label_repel(aes(label = label),
-                  nudge_x = 1,
-                  na.rm = TRUE)
-  
+fig <- plot_ly()%>%
+  layout(title = "CoronaNet Index over time (by continent)",
+         xaxis = list(title = ""),
+         yaxis = list (title = "") )
+
+ToAdd <- setdiff(colnames(index.daily.region),"week")
+
+for(i in ToAdd){
+  fig <- fig %>% add_lines(x = index.daily.region[["week"]], y = index.daily.region[[i]], name = i)
+}
+
+
+fig 
   
 
 ```
 
+A few things are worth noting here. First, the range of the index - which in principle ranges from 0 to 100 - is very small. In February, when there were almost no restrictions in place anywhere, the lowest average value of the index is 44 (Africa); in April, when most countries in Europe were enforcing their strictest lockdowns, the highest average value is 49. Of course, this may be a pure scaling issue, and restricting the graph to the relevant range yields a picture that is roughly in line with increasingly strict / costly policies implemented between March and April.
 
-  $\color{blue}{\text{ Yeah.. coronanet doesn't capture any relaxation of stringency around May. We should talk to them about this.}}$ 
+Second, however, and perhaps more problematically, there seems to be little movement downwards. While most countries started relaxing restrictions in May and June, the index remains largely unaffected. And rather unintuituvely, the only distinct drops in the policy index happen in late February.
 
 
+### Oxford COVID-19 Government Response Tracker
+
+[OxCGRT](https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker) uses a number of indicators on policy restrictions to compile a stringency index that can take values between 0 (no restrictions) and 100 (maximum restrictions). 
+
+Again, let us start by looking at the building blocks of the index. In contrast to CoronaNet, OxCGRT does not provide a database of individual events, but instead reports time series on individual types of policies, flagging whether a given policy is in place or not in the country. There is also rudimentary information on the 'intensity' of the policy (values between 1 and 4). The graph below plots the index for a very select number of countries (chosen at random, except US and Germany), along with colorful bands that indicate whether a given policy was in place:
+
+```{r measures, echo=FALSE}
+countries.to.plot <- c(unique(gwmp$Country)[seq(1,94,16)],
+                       "United States",
+                       "Germany") # Random bunch of countries
+
+df.plot.ts.gantt <-
+  gwmp %>%
+  filter(Country %in% countries.to.plot) %>%
+  dplyr::select(Country, Date, StringencyIndex.x,
+                C1_Flag, 
+                C2_Flag,
+                C3_Flag,
+                C4_Flag,
+                C5_Flag,
+                C6_Flag,
+                C7_Flag,) %>%
+  tidyr::replace_na(list(C1_Flag = 0, 
+                  C2_Flag = 0,
+                  C3_Flag = 0, 
+                  C4_Flag = 0,
+                  C5_Flag = 0, 
+                  C6_Flag = 0,
+                  C7_Flag = 0))
+
+ggplot(df.plot.ts.gantt, aes(x = Date, y = StringencyIndex.x)) +
+  scale_alpha_continuous(range = c(0, 0.3)) +
+  geom_segment(aes(y = 0, yend = 10,
+      x = Date, xend = Date,
+      alpha = as.numeric(C1_Flag)),
+    inherit.aes = F,
+    colour = "red", size = 2) +
+  geom_segment(aes(y = 10, yend = 20,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C2_Flag)),
+               inherit.aes = F,
+               colour = "orange", size = 2) +
+  geom_segment(aes(y = 20, yend = 30,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C3_Flag)),
+               inherit.aes = F,
+               colour = "yellow", size = 2) +
+  geom_segment(aes(y = 30, yend = 40,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C4_Flag)),
+               inherit.aes = F,
+               colour = "greenyellow", size = 2) +
+  geom_segment(aes(y = 40, yend = 50,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C5_Flag)),
+               inherit.aes = F,
+               colour = "green", size = 2) +
+  geom_segment(aes(y = 50, yend = 60,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C6_Flag)),
+               inherit.aes = F,
+               colour = "turquoise", size = 2) +
+  geom_segment(aes(y = 60, yend = 70,
+                   x = Date, xend = Date,
+                   alpha = as.numeric(C7_Flag)),
+               inherit.aes = F,
+               colour = "blue", size = 2, show.legend = TRUE) +
+  geom_line() +
+  ylim(0, 100) +
+  facet_wrap(~Country, ncol = 4) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+![legend](legend_improvised.PNG){width=55%}
+
+The picture is largely in line with intuition, and there is something compelling about the tractability of the index: When schools close, it goes up, when they open, it goes down, and so on.
+
+However, looking at the US, it becomes clear that this dataset as well has some important shortcomings: While the stringency index does move, there are hardly ever any 'flags up'. This is likely reflecting the pronounced federalist structure of the US, where any containment policies happened at the state rather than federal level.
+
+Returning to the big picture, this is what the index looks like when aggregated over continents at a weekly frequency:
+
+```{r}
+index.daily.region <- gwmp %>%
+  filter(!is.na(StringencyIndex.x))%>%
+  group_by(continent, week) %>%
+  dplyr::summarise(Oxford_Stringency=mean(StringencyIndex.x)) %>%
+  pivot_wider(id_cols = c("continent","week"),names_from = continent, values_from = Oxford_Stringency) %>%
+  dplyr::arrange(week) %>%
+  fill(-week, .direction = "down")
+
+fig <- plot_ly()%>%
+  layout(title = "OxCGRT over time (by continent)",
+         xaxis = list(title = ""),
+         yaxis = list (title = "") )
+
+ToAdd <- setdiff(colnames(index.daily.region),"week")
+
+for(i in ToAdd){
+  fig <- fig %>% add_lines(x = index.daily.region[["week"]], y = index.daily.region[[i]], name = i)
+}
+
+
+fig 
+  
+
+```
+
+The index seems to be somewhat more in line with intuitive expectations than CoronaNet: It consistently increases starting mid-march, and, importantly, drops in the period that is associated with relaxations of lockdowns.
+
+## Comparison of Policy Indices
+
+Finally, let's see if these datasets talk to each other at all. The plot below looks at the correlation between the two measures, based on daily values at the country level for each index.
+
+```{r scatter, echo=FALSE}
+# Scatter
+df.compare <- gwmp %>%
+  group_by(Country, Date) %>%
+  summarise(CoronaNet = mean(index_med_est),
+            OxCGRT = mean(StringencyIndex.x)) %>%
+  fill(.direction = "down")
+
+ggplot(
+  na.omit(df.compare[,c("Date","CoronaNet","OxCGRT")]), 
+  aes(x = CoronaNet, 
+      y = OxCGRT)
+  ) +
+  geom_point(size = 0.1) +
+  geom_smooth(method=lm, color="darkred", fill="blue") + 
+  stat_cor(method = "pearson") +
+  theme_bw()
+  
+```
+
+While the two measures differ in terms of scaling and also qualitatively in recent times (after policy relaxations), the correlation is fairly high (0.5) and perfectly significant. However, the differences are clearly large enough to have an impact on any analysis, and the choice needs to be carefully considered.
 
 
 ## Movement
